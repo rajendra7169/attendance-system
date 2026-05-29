@@ -40,6 +40,12 @@ import {
   isCompanyHoliday,
 } from "../utils/calendarUtils";
 import { Forest } from "../components/Forest";
+import { AchievementsBoard } from "../components/AchievementsBoard";
+import { Leaderboard } from "../components/Leaderboard";
+import { GoalsCard } from "../components/GoalsCard";
+import { YearInReview } from "../components/YearInReview";
+import { Gift } from "lucide-react";
+import confetti from "canvas-confetti";
 
 export function Dashboard() {
   const { user, userDoc, company, loading, isAdmin } = useAuth();
@@ -77,6 +83,7 @@ function AdminDashboard({ user, userDoc, company }) {
   const [attendance, setAttendance] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [search, setSearch] = useState("");
+  const [showYearReview, setShowYearReview] = useState(false);
 
   useEffect(() => {
     if (!company?.id) return;
@@ -187,10 +194,20 @@ function AdminDashboard({ user, userDoc, company }) {
               Your team's attendance — managed from one place.
             </p>
           </div>
-          <button onClick={() => navigate("/admin")} className="btn btn-accent">
-            <Plus className="w-4 h-4" />
-            Invite staff
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowYearReview(true)}
+              className="btn btn-secondary"
+              title="Year in Review"
+            >
+              <Gift className="w-4 h-4" />
+              Year in Review
+            </button>
+            <button onClick={() => navigate("/admin")} className="btn btn-accent">
+              <Plus className="w-4 h-4" />
+              Invite staff
+            </button>
+          </div>
         </div>
 
         {teamStats.pendingCount > 0 && (
@@ -295,7 +312,35 @@ function AdminDashboard({ user, userDoc, company }) {
             ))}
           </div>
         )}
+
+        {/* Leaderboard */}
+        {staffOnly.length > 1 && !loadingData && (
+          <div className="mt-8">
+            <Leaderboard members={members} attendance={attendance} company={company} />
+          </div>
+        )}
+
+        {/* Team-wide combined forest */}
+        {!loadingData && attendance.length > 0 && (
+          <div className="mt-8">
+            <Forest
+              records={attendance}
+              company={company}
+              title="Team-wide forest"
+              isAdmin
+            />
+          </div>
+        )}
       </div>
+
+      {showYearReview && (
+        <YearInReview
+          records={attendance}
+          year={new Date().getFullYear()}
+          displayName={userDoc.displayName}
+          onClose={() => setShowYearReview(false)}
+        />
+      )}
     </div>
   );
 }
@@ -305,6 +350,7 @@ function StaffDashboard({ user, userDoc, company }) {
   const [attendance, setAttendance] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [showYearReview, setShowYearReview] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = "success") => {
@@ -389,6 +435,13 @@ function StaffDashboard({ user, userDoc, company }) {
         payload,
       ]);
       showToast(`Checked in at ${formatTime12(payload.entryTime)}`);
+      confetti({
+        particleCount: 60,
+        spread: 65,
+        startVelocity: 30,
+        origin: { y: 0.7 },
+        colors: ["#16a34a", "#22c55e", "#fbbf24", "#fb923c"],
+      });
     } catch (e) {
       showToast(e.message || "Could not check in", "error");
     } finally {
@@ -477,6 +530,14 @@ function StaffDashboard({ user, userDoc, company }) {
             >
               <CalendarRange className="w-4 h-4" />
               Request leave
+            </button>
+            <button
+              onClick={() => setShowYearReview(true)}
+              className="btn btn-secondary"
+              title="Your year in review"
+            >
+              <Gift className="w-4 h-4" />
+              {new Date().getFullYear()} Wrapped
             </button>
           </div>
 
@@ -624,8 +685,22 @@ function StaffDashboard({ user, userDoc, company }) {
           </div>
         )}
 
+        {/* Goal + Achievements */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <GoalsCard userId={user.uid} attendance={attendance} />
+          <AchievementsBoard records={attendance} company={company} compact />
+        </div>
+
         <div className="mb-6">
-          <Forest records={attendance} company={company} />
+          <Forest
+            records={attendance}
+            company={company}
+            joinedAt={userDoc.joinedAt}
+          />
+        </div>
+
+        <div className="mb-6">
+          <AchievementsBoard records={attendance} company={company} />
         </div>
 
         <button
@@ -676,6 +751,15 @@ function StaffDashboard({ user, userDoc, company }) {
               `Leave requested for ${days} day${days === 1 ? "" : "s"} · pending approval`,
             );
           }}
+        />
+      )}
+
+      {showYearReview && (
+        <YearInReview
+          records={attendance}
+          year={new Date().getFullYear()}
+          displayName={userDoc.displayName}
+          onClose={() => setShowYearReview(false)}
         />
       )}
     </div>

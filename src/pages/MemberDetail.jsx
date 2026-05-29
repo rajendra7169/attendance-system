@@ -27,6 +27,7 @@ import {
 import { getAttendanceStats } from "../utils/calendarUtils";
 import { LeaveRequestModal } from "./Dashboard";
 import { Forest } from "../components/Forest";
+import { AchievementsBoard } from "../components/AchievementsBoard";
 
 export function MemberDetail() {
   const { memberId: paramId } = useParams();
@@ -330,7 +331,13 @@ export function MemberDetail() {
             records={attendance}
             company={company}
             title={isSelf ? "Your forest" : `${member.displayName}'s forest`}
+            joinedAt={member.joinedAt}
+            isAdmin={isAdmin}
           />
+        </div>
+
+        <div className="mt-6">
+          <AchievementsBoard records={attendance} company={company} />
         </div>
       </div>
 
