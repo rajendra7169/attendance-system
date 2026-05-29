@@ -3,11 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { auth, db, isFirebaseConfigured } from "../utils/firebase";
 import {
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { sendForgotPasswordEmail } from "../utils/staffUtils";
 import {
   Mail,
   Lock,
@@ -47,7 +47,25 @@ export function Login() {
     }
     setLoading(true);
     try {
-      await sendForgotPasswordEmail(email.trim());
+      // Try the branded server-side email first
+      let sent = false;
+      try {
+        const r = await fetch("/api/send-auth-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim(), type: "reset-password" }),
+        });
+        const result = await r.json();
+        if (result.ok) sent = true;
+      } catch {
+        // Will fall through to Firebase fallback
+      }
+      if (!sent) {
+        await sendPasswordResetEmail(auth, email.trim(), {
+          url: `${window.location.origin}/reset-password`,
+          handleCodeInApp: false,
+        });
+      }
       setInfo(`Reset link sent to ${email}. Check your inbox (and spam).`);
     } catch (err) {
       if (err.code === "auth/user-not-found") {

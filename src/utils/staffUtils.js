@@ -95,52 +95,29 @@ export async function createStaffByEmail({ companyId, email, displayName }) {
     joinedAt: serverTimestamp(),
   });
 
-  // 4) Send "set your password" email
-  // Try our branded endpoint first; if it asks for fallback or fails, use Firebase's email.
-  await sendAuthEmail({
-    kind: "invite",
-    email: e,
-    displayName: name,
-  });
-
-  return { uid, email: e };
-}
-
-/**
- * Internal — tries the branded /api/send-auth-email endpoint first, falls
- * back to Firebase's default sendPasswordResetEmail if Resend/Admin SDK
- * aren't configured.
- */
-async function sendAuthEmail({ kind, email, displayName, companyName, adminName }) {
+  // 4) Send branded "set your password" email via our server (with Resend + Admin SDK).
+  // Falls back to Firebase's default email if our server isn't set up yet.
   try {
-    const res = await fetch("/api/send-auth-email", {
+    const r = await fetch("/api/send-auth-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, email, displayName, companyName, adminName }),
+      body: JSON.stringify({
+        email: e,
+        type: "set-password",
+        displayName: name,
+      }),
     });
-    const data = await res.json();
-    if (res.ok && data.sent) return; // branded email sent ✓
-    if (data.useFallback) {
-      // Configured to fall back — use Firebase's default
-      await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: false,
-      });
-      return;
-    }
-    // Endpoint failed for some other reason — still try fallback so admin isn't blocked
-    console.warn("Branded email failed, using Firebase fallback:", data);
-    await sendPasswordResetEmail(auth, email, {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: false,
-    });
+    const result = await r.json();
+    if (!result.ok) throw new Error(result.error || "Server email failed");
   } catch (err) {
-    console.warn("Branded email request failed, using Firebase fallback:", err);
-    await sendPasswordResetEmail(auth, email, {
+    console.warn("Branded email failed, falling back to Firebase default:", err);
+    await sendPasswordResetEmail(auth, e, {
       url: `${window.location.origin}/reset-password`,
       handleCodeInApp: false,
     });
   }
+
+  return { uid, email: e };
 }
 
 /** Admin removes a staff member (deletes the profile doc; Auth account is orphaned) */
@@ -152,22 +129,29 @@ export async function removeStaff(uid) {
 export async function resendStaffSetupEmail(email, displayName) {
   const e = (email || "").trim().toLowerCase();
   if (!isValidEmail(e)) throw new Error("Invalid email.");
+  // Try branded email first
   try {
-    await sendAuthEmail({ kind: "invite", email: e, displayName });
+    const r = await fetch("/api/send-auth-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: e,
+        type: "set-password",
+        displayName: displayName || "",
+      }),
+    });
+    const result = await r.json();
+    if (result.ok) return;
+    throw new Error(result.error || "Server email failed");
   } catch (err) {
-    if (err.code === "auth/user-not-found") {
-      throw new Error("No account with that email.");
-    }
-    throw err;
+    console.warn("Branded email failed, falling back:", err);
   }
-}
-
-/** Forgot-password flow — sends our branded reset email */
-export async function sendForgotPasswordEmail(email) {
-  const e = (email || "").trim().toLowerCase();
-  if (!isValidEmail(e)) throw new Error("Invalid email.");
+  // Fallback
   try {
-    await sendAuthEmail({ kind: "reset", email: e });
+    await sendPasswordResetEmail(auth, e, {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: false,
+    });
   } catch (err) {
     if (err.code === "auth/user-not-found") {
       throw new Error("No account with that email.");
