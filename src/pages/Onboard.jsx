@@ -130,7 +130,7 @@ export function Onboard() {
           <div className="h-10 w-10 avatar-gradient rounded-xl">
             <Sparkles className="w-5 h-5" />
           </div>
-          <span className="font-semibold tracking-tight text-lg">Pulse</span>
+          <span className="font-semibold tracking-tight text-lg">Tally</span>
         </div>
 
         <div className="surface-elevated p-8">

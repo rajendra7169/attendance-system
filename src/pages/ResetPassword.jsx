@@ -104,7 +104,7 @@ export function ResetPassword() {
             <Sparkles className="w-5 h-5" />
           </div>
           <span className="font-semibold tracking-tight text-lg group-hover:opacity-80 transition">
-            Pulse
+            Tally
           </span>
         </Link>
 

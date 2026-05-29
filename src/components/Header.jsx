@@ -33,7 +33,7 @@ export function Header() {
     navigate("/login");
   };
 
-  const companyName = company?.name || "Pulse";
+  const companyName = company?.name || "Tally";
   const companyLogo = company?.logo || null;
 
   const initials = (userDoc?.displayName || user?.email || "?")

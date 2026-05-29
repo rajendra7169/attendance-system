@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌳 Pulse — Attendance Manager
+# 🌳 Tally — Attendance Manager
 
 **A modern, gamified attendance tracking platform for small teams.**
 Staff submit, admin approves, and every present day plants a tree in your team's living forest.
@@ -17,9 +17,9 @@ Staff submit, admin approves, and every present day plants a tree in your team's
 
 ---
 
-## ✨ Why Pulse?
+## ✨ Why Tally?
 
-Tracking attendance shouldn't feel like a chore. Pulse turns the boring grind into a **delightful, motivating experience** — your team's record is visualized as a living forest where every present day plants a tree, overtime adds a bonus glow, and absences leave withered stumps. The forest changes with the time of day, with a sun that arcs across the sky, twinkling stars at night, a flowing river, and butterflies that appear as your team thrives.
+Tracking attendance shouldn't feel like a chore. Tally turns the boring grind into a **delightful, motivating experience** — your team's record is visualized as a living forest where every present day plants a tree, overtime adds a bonus glow, and absences leave withered stumps. The forest changes with the time of day, with a sun that arcs across the sky, twinkling stars at night, a flowing river, and butterflies that appear as your team thrives.
 
 Built for **office teams, interns, and small businesses** that want a clean, modern, free alternative to enterprise time-tracking tools.
 

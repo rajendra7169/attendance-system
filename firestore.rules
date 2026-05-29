@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Production-ready Firestore security rules for Pulse attendance manager.
+// Production-ready Firestore security rules for Tally attendance manager.
 //
 // Tenancy model:
 //   - Each user has /users/{uid} with { role: "admin" | "staff", companyId }

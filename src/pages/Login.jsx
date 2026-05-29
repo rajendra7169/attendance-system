@@ -133,7 +133,7 @@ export function Login() {
           <div className="h-10 w-10 rounded-xl bg-white/10 border border-white/20 backdrop-blur flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </div>
-          <span className="font-semibold tracking-tight text-lg">Pulse</span>
+          <span className="font-semibold tracking-tight text-lg">Tally</span>
         </div>
 
         <div className="relative z-10 space-y-10">
@@ -177,7 +177,7 @@ export function Login() {
             <div className="h-10 w-10 avatar-gradient rounded-xl">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span className="font-semibold tracking-tight text-lg">Pulse</span>
+            <span className="font-semibold tracking-tight text-lg">Tally</span>
           </div>
 
           <div className="mb-8">
