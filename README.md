@@ -10,8 +10,9 @@ Staff submit, admin approves, and every present day plants a tree in your team's
 [![Firebase](https://img.shields.io/badge/Firebase-12-ffca28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06b6d4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Live](https://img.shields.io/badge/Live-tally.rajendrapandey.info.np-22c55e)](https://tally.rajendrapandey.info.np)
 
-[Live Demo](#) · [Report Bug](https://github.com/rajendra7169/attendance-system/issues) · [Request Feature](https://github.com/rajendra7169/attendance-system/issues)
+**🌐 [Try it live →](https://tally.rajendrapandey.info.np)** · [Report Bug](https://github.com/rajendra7169/attendance-system/issues) · [Request Feature](https://github.com/rajendra7169/attendance-system/issues)
 
 </div>
 
@@ -234,11 +235,19 @@ The fastest path to production:
 
 ### 3. Update Firebase for production
 
-In the Firebase Console:
-- **Authentication → Settings → Authorized domains** → Add your Vercel URL (e.g. `your-app.vercel.app`)
-- **Authentication → Templates → Password reset → Customize action URL** → `https://your-app.vercel.app/reset-password`
+In the Firebase Console → **Authentication → Settings → Authorized domains** → **Add domain** → enter your Vercel URL (e.g. `your-app.vercel.app`) or custom domain.
+
+For **Google sign-in** to work, also add your domain to the OAuth Web client in [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials):
+- **Authorized JavaScript origins** → `https://your-domain`
+- **Authorized redirect URIs** → `https://your-domain/__/auth/handler`
 
 That's it. Subsequent pushes to `main` auto-deploy in ~30 seconds.
+
+> **Password-reset URL:** No need to set this in the Firebase Console — Tally passes the current site's origin as the action URL on every reset call, so it works automatically across localhost, Vercel previews, and production.
+
+### Custom domain (optional)
+
+In Vercel → your project → **Settings → Domains** → add `tally.yourdomain.com` (or any subdomain). Vercel auto-provisions SSL. Then re-add the custom domain to Firebase Authorized Domains and the Google Cloud OAuth client.
 
 ### Alternative: Netlify
 Drag-and-drop the `dist/` folder after `npm run build`, or connect the GitHub repo. Add the same env vars in Site settings.
