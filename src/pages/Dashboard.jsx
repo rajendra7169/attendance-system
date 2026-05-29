@@ -43,6 +43,7 @@ import { Forest } from "../components/Forest";
 import { AchievementsBoard } from "../components/AchievementsBoard";
 import { Leaderboard } from "../components/Leaderboard";
 import { GoalsCard } from "../components/GoalsCard";
+import { LeaveBalanceCard } from "../components/LeaveBalanceCard";
 import { YearInReview } from "../components/YearInReview";
 import { Gift } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -685,9 +686,14 @@ function StaffDashboard({ user, userDoc, company }) {
           </div>
         )}
 
-        {/* Goal + Achievements */}
+        {/* Goal + Leave balance */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <GoalsCard userId={user.uid} attendance={attendance} />
+          <LeaveBalanceCard records={attendance} company={company} />
+        </div>
+
+        {/* Compact achievements row */}
+        <div className="mb-6">
           <AchievementsBoard records={attendance} company={company} compact />
         </div>
 

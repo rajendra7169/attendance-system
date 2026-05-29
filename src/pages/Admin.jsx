@@ -17,6 +17,12 @@ import {
 import { uploadImage } from "../utils/uploadImage";
 import { createStaffByEmail, resendStaffSetupEmail } from "../utils/staffUtils";
 import { formatTime12, getDayTone, getToneLabel } from "../utils/calendarUtils";
+import { exportAttendanceCSV, exportAttendancePDF, parseStaffCSV } from "../utils/exportUtils";
+import { fetchHolidays, COUNTRY_OPTIONS } from "../utils/holidayApi";
+import { logAudit } from "../utils/auditUtils";
+import { sendEmail, emailAttendanceApproved, emailAttendanceRejected } from "../utils/notify";
+import { DEFAULT_QUOTAS } from "../utils/leaveUtils";
+import { AuditLogPanel } from "../components/AuditLogPanel";
 import {
   Building2,
   Plus,
@@ -32,12 +38,22 @@ import {
   Calendar as CalendarIcon,
   UserPlus,
   Mail,
+  FileDown,
+  FileText,
+  Search,
+  Download,
+  History,
+  Globe,
+  Crown,
+  Shield,
 } from "lucide-react";
 
 const TABS = [
   { id: "company", label: "Company", icon: Building2 },
   { id: "staff", label: "Staff", icon: Users },
   { id: "approvals", label: "Approvals", icon: Clock },
+  { id: "reports", label: "Reports", icon: FileDown },
+  { id: "activity", label: "Activity", icon: History },
 ];
 
 export function Admin() {
@@ -117,7 +133,18 @@ export function Admin() {
           <StaffSection company={company} adminId={user.uid} onToast={showToast} />
         )}
         {tab === "approvals" && (
-          <ApprovalsSection company={company} adminId={user.uid} onToast={showToast} />
+          <ApprovalsSection
+            company={company}
+            adminId={user.uid}
+            adminName={userDoc?.displayName}
+            onToast={showToast}
+          />
+        )}
+        {tab === "reports" && (
+          <ReportsSection company={company} onToast={showToast} />
+        )}
+        {tab === "activity" && (
+          <AuditLogPanel companyId={company.id} />
         )}
       </div>
     </div>
@@ -140,6 +167,30 @@ function CompanySection({ company, onToast }) {
   const [newHolidayName, setNewHolidayName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [importCountry, setImportCountry] = useState("NP");
+  const [importYear, setImportYear] = useState(new Date().getFullYear());
+  const [importing, setImporting] = useState(false);
+  const [leaveQuotas, setLeaveQuotas] = useState({
+    annual: company.leaveQuotas?.annual ?? 18,
+    sick: company.leaveQuotas?.sick ?? 10,
+    casual: company.leaveQuotas?.casual ?? 5,
+  });
+
+  const handleHolidayImport = async () => {
+    setImporting(true);
+    try {
+      const fetched = await fetchHolidays(importYear, importCountry);
+      // De-dupe by date
+      const existing = new Set(holidays.map((h) => h.date));
+      const fresh = fetched.filter((h) => !existing.has(h.date));
+      setHolidays((prev) => [...prev, ...fresh]);
+      onToast(`Imported ${fresh.length} holiday${fresh.length === 1 ? "" : "s"}`);
+    } catch (e) {
+      onToast(e.message || "Could not import holidays", "error");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -187,6 +238,7 @@ function CompanySection({ company, onToast }) {
         officeEnd,
         workingDays,
         holidays,
+        leaveQuotas,
         autoApprove,
         updatedAt: serverTimestamp(),
       });
@@ -327,6 +379,44 @@ function CompanySection({ company, onToast }) {
           Holidays
         </h2>
 
+        {/* Country import */}
+        <div className="p-4 rounded-lg bg-indigo-50 border border-indigo-200 mb-5">
+          <p className="text-sm font-medium text-indigo-900 mb-3 flex items-center gap-1.5">
+            <Globe className="w-4 h-4" />
+            Auto-import national holidays
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              value={importCountry}
+              onChange={(e) => setImportCountry(e.target.value)}
+              className="input-field sm:max-w-[200px]"
+            >
+              {COUNTRY_OPTIONS.map((c) => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={importYear}
+              onChange={(e) => setImportYear(parseInt(e.target.value) || new Date().getFullYear())}
+              min="2020"
+              max="2100"
+              className="input-field sm:max-w-[100px]"
+            />
+            <button
+              type="button"
+              onClick={handleHolidayImport}
+              className="btn btn-accent"
+              disabled={importing}
+            >
+              {importing ? "Importing..." : "Import"}
+            </button>
+          </div>
+          <p className="text-xs text-indigo-700/70 mt-2">
+            Adds the country's official holidays for the selected year. Duplicates are skipped.
+          </p>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-2 mb-4">
           <input
             type="date"
@@ -382,6 +472,51 @@ function CompanySection({ company, onToast }) {
         )}
       </section>
 
+      <section className="surface-elevated p-6 sm:p-8">
+        <h2 className="text-lg font-semibold tracking-tight mb-1 flex items-center gap-2">
+          <CalendarIcon className="w-5 h-5 text-indigo-600" />
+          Leave quotas
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mb-4">
+          Default annual entitlements per staff member. Approved off-days deduct from these.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="label">🏖️ Annual leave (days)</label>
+            <input
+              type="number"
+              min="0"
+              max="365"
+              value={leaveQuotas.annual}
+              onChange={(e) => setLeaveQuotas((p) => ({ ...p, annual: parseInt(e.target.value) || 0 }))}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label">🤒 Sick leave (days)</label>
+            <input
+              type="number"
+              min="0"
+              max="365"
+              value={leaveQuotas.sick}
+              onChange={(e) => setLeaveQuotas((p) => ({ ...p, sick: parseInt(e.target.value) || 0 }))}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label">📅 Casual leave (days)</label>
+            <input
+              type="number"
+              min="0"
+              max="365"
+              value={leaveQuotas.casual}
+              onChange={(e) => setLeaveQuotas((p) => ({ ...p, casual: parseInt(e.target.value) || 0 }))}
+              className="input-field"
+            />
+          </div>
+        </div>
+      </section>
+
       <div className="flex justify-end">
         <button onClick={save} disabled={saving} className="btn btn-primary">
           {saving ? "Saving..." : "Save all changes"}
@@ -402,6 +537,11 @@ function StaffSection({ company, adminId, onToast }) {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("staff");
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState([]);
+  const [bulkErrors, setBulkErrors] = useState([]);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
     if (!company?.id) return;
@@ -437,6 +577,88 @@ function StaffSection({ company, adminId, onToast }) {
       onToast(e.message || "Could not create staff", "error");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCsvFile = async (file) => {
+    setBulkErrors([]);
+    setBulkRows([]);
+    try {
+      const text = await file.text();
+      const { rows, errors } = parseStaffCSV(text);
+      setBulkRows(rows);
+      setBulkErrors(errors);
+      if (rows.length === 0 && errors.length > 0) {
+        onToast("No valid rows in CSV", "error");
+      } else {
+        onToast(`Parsed ${rows.length} row${rows.length === 1 ? "" : "s"}${errors.length ? ` (${errors.length} errors)` : ""}`);
+      }
+    } catch (e) {
+      onToast(e.message || "Could not read file", "error");
+    }
+  };
+
+  const handleBulkImport = async () => {
+    if (bulkRows.length === 0) return;
+    setBulkImporting(true);
+    setBulkProgress({ done: 0, total: bulkRows.length });
+    const created = [];
+    const failed = [];
+    for (let i = 0; i < bulkRows.length; i++) {
+      const row = bulkRows[i];
+      try {
+        await createStaffByEmail({
+          companyId: company.id,
+          email: row.email,
+          displayName: row.displayName,
+        });
+        created.push(row.email);
+      } catch (e) {
+        failed.push({ email: row.email, error: e.message });
+      }
+      setBulkProgress({ done: i + 1, total: bulkRows.length });
+    }
+    setBulkImporting(false);
+    setBulkOpen(false);
+    setBulkRows([]);
+    await logAudit({
+      companyId: company.id,
+      actorId: adminId,
+      action: "imported_staff",
+      details: { summary: `${created.length} created, ${failed.length} failed` },
+    });
+    if (failed.length === 0) {
+      onToast(`Imported ${created.length} staff members`);
+    } else {
+      onToast(
+        `Imported ${created.length}, failed ${failed.length}. Check console for details.`,
+        failed.length > created.length ? "error" : "success",
+      );
+      console.warn("Bulk import failures:", failed);
+    }
+  };
+
+  const toggleRole = async (m) => {
+    if (m.id === adminId) {
+      onToast("You can't change your own role", "error");
+      return;
+    }
+    const newRole = m.role === "admin" ? "staff" : "admin";
+    if (!confirm(`${newRole === "admin" ? "Promote" : "Demote"} ${m.displayName} to ${newRole}?`)) return;
+    try {
+      await updateDoc(doc(db, "users", m.id), { role: newRole });
+      await logAudit({
+        companyId: company.id,
+        actorId: adminId,
+        action: "role_changed",
+        details: {
+          targetName: m.displayName,
+          summary: `${m.role} → ${newRole}`,
+        },
+      });
+      onToast(`${m.displayName} is now ${newRole}`);
+    } catch (e) {
+      onToast(e.message || "Could not change role", "error");
     }
   };
 
@@ -489,14 +711,108 @@ function StaffSection({ company, adminId, onToast }) {
   return (
     <div className="space-y-6">
       <section className="surface-elevated p-6 sm:p-8">
-        <h2 className="text-lg font-semibold tracking-tight mb-1 flex items-center gap-2">
-          <UserPlus className="w-5 h-5 text-indigo-600" />
-          Add staff member
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-indigo-600" />
+            Add staff member
+          </h2>
+          <button
+            onClick={() => setBulkOpen(!bulkOpen)}
+            className="btn btn-secondary"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            {bulkOpen ? "Single mode" : "Bulk import CSV"}
+          </button>
+        </div>
         <p className="text-sm text-[var(--text-muted)] mb-4">
-          Enter their name and email. We'll email them a link to set their own password.
+          {bulkOpen
+            ? "Upload a CSV with name, email, and (optional) department columns. We'll email each one a link to set their password."
+            : "Enter their name and email. We'll email them a link to set their own password."}
         </p>
 
+        {bulkOpen && (
+          <div className="space-y-4 mb-4">
+            <div className="p-4 rounded-lg bg-indigo-50 border border-indigo-200">
+              <p className="text-sm font-medium text-indigo-900 mb-2">CSV format</p>
+              <pre className="text-xs font-mono text-indigo-900/80 overflow-x-auto">
+{`name,email,department
+John Doe,john@company.com,Engineering
+Jane Smith,jane@company.com,Sales`}
+              </pre>
+            </div>
+
+            <label className="block">
+              <span className="label block">Select CSV file</span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => e.target.files?.[0] && handleCsvFile(e.target.files[0])}
+                className="input-field"
+                disabled={bulkImporting}
+              />
+            </label>
+
+            {bulkErrors.length > 0 && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-sm text-rose-800">
+                <p className="font-medium mb-1">{bulkErrors.length} issues:</p>
+                <ul className="text-xs space-y-0.5 list-disc list-inside">
+                  {bulkErrors.slice(0, 6).map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                  {bulkErrors.length > 6 && <li>...and {bulkErrors.length - 6} more</li>}
+                </ul>
+              </div>
+            )}
+
+            {bulkRows.length > 0 && (
+              <div className="surface p-3">
+                <p className="text-sm font-medium mb-2">
+                  Ready to import {bulkRows.length} staff:
+                </p>
+                <div className="max-h-40 overflow-y-auto space-y-1 mb-3">
+                  {bulkRows.slice(0, 10).map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="font-medium">{r.displayName}</span>
+                      <span className="text-[var(--text-muted)]">·</span>
+                      <code className="font-mono">{r.email}</code>
+                      {r.department && (
+                        <>
+                          <span className="text-[var(--text-muted)]">·</span>
+                          <span className="badge badge-neutral">{r.department}</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {bulkRows.length > 10 && (
+                    <p className="text-xs text-[var(--text-muted)]">...and {bulkRows.length - 10} more</p>
+                  )}
+                </div>
+                {bulkImporting ? (
+                  <div>
+                    <div className="h-1.5 bg-[var(--bg-soft)] rounded-full overflow-hidden mb-1">
+                      <div
+                        className="h-full bg-indigo-500 transition-all"
+                        style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)] text-center">
+                      Importing {bulkProgress.done} / {bulkProgress.total}...
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleBulkImport}
+                    className="btn btn-accent w-full"
+                  >
+                    Import {bulkRows.length} staff
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!bulkOpen && (
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -527,6 +843,7 @@ function StaffSection({ company, adminId, onToast }) {
             {creating ? "Sending invite..." : "Create staff account"}
           </button>
         </form>
+        )}
 
         {createdInfo && (
           <div className="mt-5 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
@@ -647,6 +964,18 @@ function StaffSection({ company, adminId, onToast }) {
                           </button>
                         )}
                         <button
+                          onClick={() => toggleRole(m)}
+                          className="btn btn-ghost btn-icon"
+                          title={m.role === "admin" ? "Demote to staff" : "Promote to admin"}
+                          disabled={m.id === adminId}
+                        >
+                          {m.role === "admin" ? (
+                            <Shield className="w-4 h-4 text-indigo-600" />
+                          ) : (
+                            <Crown className="w-4 h-4 text-amber-500" />
+                          )}
+                        </button>
+                        <button
                           onClick={() => startEdit(m)}
                           className="btn btn-ghost btn-icon"
                           title="Edit"
@@ -675,11 +1004,14 @@ function StaffSection({ company, adminId, onToast }) {
 
 /* ------------ Approvals Section ------------ */
 
-function ApprovalsSection({ company, adminId, onToast }) {
+function ApprovalsSection({ company, adminId, adminName, onToast }) {
   const [pending, setPending] = useState([]);
   const [members, setMembers] = useState({});
   const [loading, setLoading] = useState(true);
   const [reviewNote, setReviewNote] = useState({});
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [search, setSearch] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     if (!company?.id) return;
@@ -714,6 +1046,40 @@ function ApprovalsSection({ company, adminId, onToast }) {
     fetchMembers();
   }, [company?.id]);
 
+  // Filter by search
+  const filteredPending = pending.filter((entry) => {
+    if (!search.trim()) return true;
+    const member = members[entry.userId];
+    const q = search.toLowerCase();
+    return (
+      entry.date.includes(q) ||
+      entry.status?.toLowerCase().includes(q) ||
+      member?.displayName?.toLowerCase().includes(q) ||
+      member?.email?.toLowerCase().includes(q)
+    );
+  });
+
+  const allFilteredSelected =
+    filteredPending.length > 0 &&
+    filteredPending.every((p) => selectedIds.has(p.id));
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredPending.map((p) => p.id)));
+    }
+  };
+
+  const toggleOne = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const review = async (entry, decision) => {
     try {
       await updateDoc(doc(db, "attendance", entry.id), {
@@ -722,9 +1088,96 @@ function ApprovalsSection({ company, adminId, onToast }) {
         reviewedAt: serverTimestamp(),
         reviewNote: reviewNote[entry.id] || "",
       });
+      // Audit + email
+      const member = members[entry.userId];
+      await logAudit({
+        companyId: company.id,
+        actorId: adminId,
+        actorName: adminName,
+        action: decision === "approved" ? "approved" : "rejected",
+        target: `attendance/${entry.id}`,
+        details: {
+          targetName: member?.displayName,
+          summary: `${entry.status} on ${entry.date}`,
+        },
+      });
+      if (member?.email && !member.email.endsWith(".pulse.local")) {
+        const html = (decision === "approved"
+          ? emailAttendanceApproved
+          : emailAttendanceRejected)({
+          staffName: member.displayName,
+          date: entry.date,
+          status: entry.status,
+          reviewerName: adminName,
+          reviewNote: reviewNote[entry.id] || "",
+        });
+        sendEmail({
+          to: member.email,
+          subject:
+            decision === "approved"
+              ? "Your attendance was approved ✓"
+              : "Your attendance was rejected",
+          html,
+        });
+      }
       onToast(`Marked as ${decision}`);
     } catch (e) {
       onToast(e.message || "Could not review", "error");
+    }
+  };
+
+  const bulkReview = async (decision) => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`${decision === "approved" ? "Approve" : "Reject"} ${selectedIds.size} entries?`)) return;
+    setBulkBusy(true);
+    try {
+      const ids = [...selectedIds];
+      await Promise.all(
+        ids.map((id) =>
+          updateDoc(doc(db, "attendance", id), {
+            state: decision,
+            reviewedBy: adminId,
+            reviewedAt: serverTimestamp(),
+            reviewNote: "Bulk " + decision,
+          }),
+        ),
+      );
+      await logAudit({
+        companyId: company.id,
+        actorId: adminId,
+        actorName: adminName,
+        action: decision === "approved" ? "bulk_approved" : "bulk_rejected",
+        details: { summary: `${ids.length} entries` },
+      });
+      // Fire emails (best-effort)
+      ids.forEach((id) => {
+        const entry = pending.find((p) => p.id === id);
+        const member = members[entry?.userId];
+        if (entry && member?.email && !member.email.endsWith(".pulse.local")) {
+          const html = (decision === "approved"
+            ? emailAttendanceApproved
+            : emailAttendanceRejected)({
+            staffName: member.displayName,
+            date: entry.date,
+            status: entry.status,
+            reviewerName: adminName,
+          });
+          sendEmail({
+            to: member.email,
+            subject:
+              decision === "approved"
+                ? "Your attendance was approved ✓"
+                : "Your attendance was rejected",
+            html,
+          });
+        }
+      });
+      setSelectedIds(new Set());
+      onToast(`${decision === "approved" ? "Approved" : "Rejected"} ${ids.length} entries`);
+    } catch (e) {
+      onToast(e.message || "Bulk action failed", "error");
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -752,15 +1205,81 @@ function ApprovalsSection({ company, adminId, onToast }) {
 
   return (
     <div className="space-y-3">
-      {pending.map((entry) => {
+      {/* Search + bulk toolbar */}
+      <div className="surface-elevated p-4 flex flex-wrap items-center gap-3 sticky top-16 z-30">
+        <label className="flex items-center gap-2 cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            checked={allFilteredSelected}
+            onChange={toggleAll}
+            className="w-4 h-4"
+          />
+          {selectedIds.size > 0
+            ? `${selectedIds.size} selected`
+            : `Select all (${filteredPending.length})`}
+        </label>
+
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, date, status..."
+            className="input-field pl-9"
+          />
+        </div>
+
+        {selectedIds.size > 0 && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => bulkReview("approved")}
+              className="btn btn-primary"
+              disabled={bulkBusy}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Approve {selectedIds.size}
+            </button>
+            <button
+              onClick={() => bulkReview("rejected")}
+              className="btn btn-danger"
+              disabled={bulkBusy}
+            >
+              <XCircle className="w-4 h-4" />
+              Reject {selectedIds.size}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {filteredPending.length === 0 && (
+        <div className="surface p-8 text-center">
+          <p className="text-sm text-[var(--text-muted)]">
+            No matches for "{search}"
+          </p>
+        </div>
+      )}
+
+      {filteredPending.map((entry) => {
         const member = members[entry.userId];
         const tone = getDayTone(entry, {
           start: company.officeStart,
           end: company.officeEnd,
         });
         return (
-          <div key={entry.id} className="surface-elevated p-5">
+          <div
+            key={entry.id}
+            className={`surface-elevated p-5 transition ${
+              selectedIds.has(entry.id) ? "ring-2 ring-indigo-300" : ""
+            }`}
+          >
             <div className="flex items-start gap-3 mb-4">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(entry.id)}
+                onChange={() => toggleOne(entry.id)}
+                className="w-4 h-4 mt-3 flex-shrink-0"
+              />
               {member?.photo ? (
                 <img
                   src={member.photo}
@@ -865,6 +1384,170 @@ function ApprovalsSection({ company, adminId, onToast }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ------------ Reports Section ------------ */
+
+function ReportsSection({ company, onToast }) {
+  const [members, setMembers] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [period, setPeriod] = useState("month"); // month | quarter | year | all
+  const [memberFilter, setMemberFilter] = useState("all");
+
+  useEffect(() => {
+    if (!company?.id) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const mSnap = await getDocs(
+          query(collection(db, "users"), where("companyId", "==", company.id)),
+        );
+        const aSnap = await getDocs(
+          query(collection(db, "attendance"), where("companyId", "==", company.id)),
+        );
+        setMembers(mSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setAttendance(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [company?.id]);
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    return attendance.filter((r) => {
+      if (memberFilter !== "all" && r.userId !== memberFilter) return false;
+      if (period === "all") return true;
+      const recordDate = new Date(r.date);
+      const days =
+        period === "month" ? 30
+        : period === "quarter" ? 90
+        : 365;
+      return (now - recordDate) / 86400000 <= days;
+    });
+  }, [attendance, period, memberFilter]);
+
+  const handleCSV = async () => {
+    setExporting(true);
+    try {
+      exportAttendanceCSV({ records: filtered, members, company, dateRange: period });
+      onToast("CSV downloaded");
+    } catch (e) {
+      onToast(e.message || "Export failed", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handlePDF = async () => {
+    setExporting(true);
+    try {
+      const labels = {
+        month: "Last 30 days",
+        quarter: "Last 90 days",
+        year: "Last 12 months",
+        all: "All time",
+      };
+      await exportAttendancePDF({
+        records: filtered,
+        members,
+        company,
+        periodLabel: labels[period],
+      });
+      onToast("PDF downloaded");
+    } catch (e) {
+      onToast(e.message || "Export failed", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <section className="surface-elevated p-6 sm:p-8">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+            <Download className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Export attendance
+            </h2>
+            <p className="text-sm text-[var(--text-muted)]">
+              Download for payroll, reporting, or back-up
+            </p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="label">Period</label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="input-field"
+            >
+              <option value="month">Last 30 days</option>
+              <option value="quarter">Last 90 days</option>
+              <option value="year">Last 12 months</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Members</label>
+            <select
+              value={memberFilter}
+              onChange={(e) => setMemberFilter(e.target.value)}
+              className="input-field"
+            >
+              <option value="all">All members</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
+          <strong className="tabular-nums">{filtered.length}</strong> record{filtered.length === 1 ? "" : "s"} match your filters.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleCSV}
+            className="btn btn-accent"
+            disabled={loading || exporting || filtered.length === 0}
+          >
+            <FileText className="w-4 h-4" />
+            Download CSV
+          </button>
+          <button
+            onClick={handlePDF}
+            className="btn btn-secondary"
+            disabled={loading || exporting || filtered.length === 0}
+          >
+            <FileDown className="w-4 h-4" />
+            {exporting ? "Generating..." : "Download PDF report"}
+          </button>
+        </div>
+      </section>
+
+      <section className="surface-elevated p-6 sm:p-8">
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+          <strong>CSV</strong> — a flat sheet of every record, openable in Excel / Google Sheets / your payroll tool.
+          <br />
+          <strong>PDF</strong> — a formatted multi-page report with per-member summaries and detailed logs, ready for printing or filing.
+        </p>
+      </section>
     </div>
   );
 }
