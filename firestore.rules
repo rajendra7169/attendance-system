@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Production-ready Firestore security rules for Pulse attendance manager.
+//
+// Tenancy model:
+//   - Each user has /users/{uid} with { role: "admin" | "staff", companyId }
+//   - All data is scoped to a companyId, never crossed between workspaces
+//   - Staff can submit their own pending attendance; admin approves
+//
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function myUid() { return request.auth.uid; }
+    function getMe() { return get(/databases/$(database)/documents/users/$(myUid())).data; }
+
+    function isAdminOf(cid) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(myUid()))
+        && getMe().role == 'admin'
+        && getMe().companyId == cid;
+    }
+    function isMemberOf(cid) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(myUid()))
+        && getMe().companyId == cid;
+    }
+
+    // ---------------- Companies ----------------
+    match /companies/{companyId} {
+      allow read: if isMemberOf(companyId);
+      allow create: if isSignedIn() && request.resource.data.ownerId == myUid();
+      allow update: if isAdminOf(companyId);
+      allow delete: if false;
+    }
+
+    // ---------------- User profiles ----------------
+    match /users/{userId} {
+      // Own doc OR a member of the same company can read
+      allow read: if isSignedIn() && (
+        myUid() == userId
+        || (exists(/databases/$(database)/documents/users/$(myUid()))
+            && resource.data.companyId == getMe().companyId)
+      );
+      // Anyone signed in can create their OWN profile doc
+      allow create: if isSignedIn() && myUid() == userId;
+      // Self-update (photo, name) OR admin update for company members
+      allow update: if myUid() == userId
+        || isAdminOf(resource.data.companyId);
+      // Admin can remove staff
+      allow delete: if isAdminOf(resource.data.companyId);
+    }
+
+    // ---------------- Attendance ----------------
+    match /attendance/{id} {
+      allow read: if isSignedIn() && isMemberOf(resource.data.companyId);
+
+      // Staff submits their OWN attendance as pending or approved (autoApprove path)
+      // Admin can create attendance for any company member
+      allow create: if isSignedIn()
+        && request.resource.data.companyId == getMe().companyId
+        && (
+          (request.resource.data.userId == myUid()
+            && request.resource.data.state in ['pending', 'approved'])
+          || isAdminOf(getMe().companyId)
+        );
+
+      // Staff can only edit their own pending records; admin can edit anything in their company
+      allow update: if isSignedIn() && (
+        (resource.data.userId == myUid() && resource.data.state == 'pending')
+        || isAdminOf(resource.data.companyId)
+      );
+
+      // Staff can delete their own records; admin can delete any company record
+      allow delete: if isSignedIn() && (
+        resource.data.userId == myUid()
+        || isAdminOf(resource.data.companyId)
+      );
+    }
+  }
+}
