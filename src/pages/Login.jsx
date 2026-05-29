@@ -3,11 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { auth, db, isFirebaseConfigured } from "../utils/firebase";
 import {
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import { sendForgotPasswordEmail } from "../utils/staffUtils";
 import {
   Mail,
   Lock,
@@ -47,10 +47,7 @@ export function Login() {
     }
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email.trim(), {
-        url: `${window.location.origin}/reset-password`,
-        handleCodeInApp: false,
-      });
+      await sendForgotPasswordEmail(email.trim());
       setInfo(`Reset link sent to ${email}. Check your inbox (and spam).`);
     } catch (err) {
       if (err.code === "auth/user-not-found") {

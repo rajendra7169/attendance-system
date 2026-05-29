@@ -95,13 +95,52 @@ export async function createStaffByEmail({ companyId, email, displayName }) {
     joinedAt: serverTimestamp(),
   });
 
-  // 4) Send "set your password" email (uses Firebase's password-reset template)
-  await sendPasswordResetEmail(auth, e, {
-    url: `${window.location.origin}/reset-password`,
-    handleCodeInApp: false,
+  // 4) Send "set your password" email
+  // Try our branded endpoint first; if it asks for fallback or fails, use Firebase's email.
+  await sendAuthEmail({
+    kind: "invite",
+    email: e,
+    displayName: name,
   });
 
   return { uid, email: e };
+}
+
+/**
+ * Internal — tries the branded /api/send-auth-email endpoint first, falls
+ * back to Firebase's default sendPasswordResetEmail if Resend/Admin SDK
+ * aren't configured.
+ */
+async function sendAuthEmail({ kind, email, displayName, companyName, adminName }) {
+  try {
+    const res = await fetch("/api/send-auth-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, email, displayName, companyName, adminName }),
+    });
+    const data = await res.json();
+    if (res.ok && data.sent) return; // branded email sent ✓
+    if (data.useFallback) {
+      // Configured to fall back — use Firebase's default
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false,
+      });
+      return;
+    }
+    // Endpoint failed for some other reason — still try fallback so admin isn't blocked
+    console.warn("Branded email failed, using Firebase fallback:", data);
+    await sendPasswordResetEmail(auth, email, {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: false,
+    });
+  } catch (err) {
+    console.warn("Branded email request failed, using Firebase fallback:", err);
+    await sendPasswordResetEmail(auth, email, {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: false,
+    });
+  }
 }
 
 /** Admin removes a staff member (deletes the profile doc; Auth account is orphaned) */
@@ -110,14 +149,25 @@ export async function removeStaff(uid) {
 }
 
 /** Resend the "set your password" email to a staff member */
-export async function resendStaffSetupEmail(email) {
+export async function resendStaffSetupEmail(email, displayName) {
   const e = (email || "").trim().toLowerCase();
   if (!isValidEmail(e)) throw new Error("Invalid email.");
   try {
-    await sendPasswordResetEmail(auth, e, {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: false,
-    });
+    await sendAuthEmail({ kind: "invite", email: e, displayName });
+  } catch (err) {
+    if (err.code === "auth/user-not-found") {
+      throw new Error("No account with that email.");
+    }
+    throw err;
+  }
+}
+
+/** Forgot-password flow — sends our branded reset email */
+export async function sendForgotPasswordEmail(email) {
+  const e = (email || "").trim().toLowerCase();
+  if (!isValidEmail(e)) throw new Error("Invalid email.");
+  try {
+    await sendAuthEmail({ kind: "reset", email: e });
   } catch (err) {
     if (err.code === "auth/user-not-found") {
       throw new Error("No account with that email.");
