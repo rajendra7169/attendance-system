@@ -96,7 +96,10 @@ export async function createStaffByEmail({ companyId, email, displayName }) {
   });
 
   // 4) Send "set your password" email (uses Firebase's password-reset template)
-  await sendPasswordResetEmail(auth, e);
+  await sendPasswordResetEmail(auth, e, {
+    url: `${window.location.origin}/reset-password`,
+    handleCodeInApp: false,
+  });
 
   return { uid, email: e };
 }
@@ -111,7 +114,10 @@ export async function resendStaffSetupEmail(email) {
   const e = (email || "").trim().toLowerCase();
   if (!isValidEmail(e)) throw new Error("Invalid email.");
   try {
-    await sendPasswordResetEmail(auth, e);
+    await sendPasswordResetEmail(auth, e, {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: false,
+    });
   } catch (err) {
     if (err.code === "auth/user-not-found") {
       throw new Error("No account with that email.");

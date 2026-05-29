@@ -47,7 +47,10 @@ export function Login() {
     }
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false,
+      });
       setInfo(`Reset link sent to ${email}. Check your inbox (and spam).`);
     } catch (err) {
       if (err.code === "auth/user-not-found") {
