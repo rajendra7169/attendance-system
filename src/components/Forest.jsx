@@ -647,7 +647,8 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
       // Use userId+date so trees for different staff don't stack at the same spot
       const seed = `${r.userId || "self"}_${r.date}`;
       const xPct = rand01(seed + "x") * 0.86 + 0.07;
-      const yPct = rand01(seed + "y") * 0.55 + 0.4;
+      // Trees grow on the GROUND only (y range 0.6 - 0.95), never in the sky.
+      const yPct = rand01(seed + "y") * 0.35 + 0.6;
       const recordDate = new Date(r.date);
       const anniv = joinedAt && isAnniversary(joinedAt, recordDate);
       items.push({
@@ -953,9 +954,13 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
                 <stop offset="0%" stopColor={sky.phase === "night" ? "#1e40af" : "#7dd3fc"} />
                 <stop offset="100%" stopColor={sky.phase === "night" ? "#0c1e3e" : "#3b82f6"} />
               </linearGradient>
-              <linearGradient id="mountain" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={sky.phase === "night" ? "#1e3a8a" : "#a7f3d0"} />
-                <stop offset="100%" stopColor={sky.phase === "night" ? "#172554" : "#6ee7b7"} />
+              <linearGradient id="mountainBack" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={sky.phase === "night" ? "#1e3a8a" : "#bbf7d0"} />
+                <stop offset="100%" stopColor={sky.phase === "night" ? "#1e293b" : "#86efac"} />
+              </linearGradient>
+              <linearGradient id="mountainFront" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={sky.phase === "night" ? "#0f172a" : "#4ade80"} />
+                <stop offset="100%" stopColor={sky.phase === "night" ? "#020617" : "#16a34a"} />
               </linearGradient>
             </defs>
 
@@ -990,9 +995,15 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
               </g>
             )}
 
+            {/* Back hills — opaque, covers sun/moon when they're low */}
             <path
-              d={`M0,${canvas.h * 0.55} Q${canvas.w * 0.15},${canvas.h * 0.42} ${canvas.w * 0.32},${canvas.h * 0.5} T${canvas.w * 0.6},${canvas.h * 0.48} T${canvas.w},${canvas.h * 0.52} L${canvas.w},${canvas.h * 0.55} Z`}
-              fill="url(#mountain)" opacity="0.7"
+              d={`M0,${canvas.h * 0.55} Q${canvas.w * 0.18},${canvas.h * 0.4} ${canvas.w * 0.35},${canvas.h * 0.48} T${canvas.w * 0.65},${canvas.h * 0.46} T${canvas.w},${canvas.h * 0.5} L${canvas.w},${canvas.h * 0.56} L0,${canvas.h * 0.56} Z`}
+              fill="url(#mountainBack)"
+            />
+            {/* Front hills — closer, darker, more dramatic peaks */}
+            <path
+              d={`M0,${canvas.h * 0.58} Q${canvas.w * 0.1},${canvas.h * 0.47} ${canvas.w * 0.22},${canvas.h * 0.53} T${canvas.w * 0.45},${canvas.h * 0.5} T${canvas.w * 0.7},${canvas.h * 0.54} T${canvas.w},${canvas.h * 0.55} L${canvas.w},${canvas.h * 0.6} L0,${canvas.h * 0.6} Z`}
+              fill="url(#mountainFront)"
             />
 
             {/* Weather-driven clouds */}
