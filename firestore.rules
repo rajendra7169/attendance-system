@@ -76,6 +76,24 @@ service cloud.firestore {
         resource.data.userId == myUid()
         || isAdminOf(resource.data.companyId)
       );
+
+      // ---------------- Comments on a record ----------------
+      // Anyone in the same workspace can read & post; users can delete their
+      // own comments; admins can delete any.
+      match /comments/{commentId} {
+        function parentRec() {
+          return get(/databases/$(database)/documents/attendance/$(id)).data;
+        }
+        allow read: if isSignedIn() && isMemberOf(parentRec().companyId);
+        allow create: if isSignedIn()
+          && isMemberOf(parentRec().companyId)
+          && request.resource.data.authorId == myUid();
+        allow update: if false;
+        allow delete: if isSignedIn() && (
+          resource.data.authorId == myUid()
+          || isAdminOf(parentRec().companyId)
+        );
+      }
     }
   }
 }

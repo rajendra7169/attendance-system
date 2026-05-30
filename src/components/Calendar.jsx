@@ -28,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import { useAuth } from "../hooks/useAuth";
+import { RecordComments } from "./RecordComments";
 
 const STATUS_OPTIONS_ADMIN = [
   { value: "present", label: "Present" },
@@ -81,6 +82,7 @@ function AttendanceModal({
   onDelete,
   canEdit,
   existingRecord,
+  recordDocId,
   officeStart,
   officeEnd,
   isAdmin,
@@ -487,6 +489,10 @@ function AttendanceModal({
         ) : (
           <ViewerView record={existingRecord} officeStart={officeStart} officeEnd={officeEnd} />
         )}
+
+        {existingRecord && recordDocId && (
+          <RecordComments recordDocId={recordDocId} />
+        )}
       </div>
     </div>
   );
@@ -792,6 +798,7 @@ export function Calendar({ memberId, year, company, canEdit, isSelf }) {
         onDelete={handleDelete}
         canEdit={canEdit}
         existingRecord={selectedDate ? attendance[dateKey(selectedDate)] : null}
+        recordDocId={selectedDate ? `${memberId}_${dateKey(selectedDate)}` : null}
         officeStart={officeStart}
         officeEnd={officeEnd}
         isAdmin={isAdmin}
