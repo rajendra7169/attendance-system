@@ -730,6 +730,7 @@ function StaffSection({ company, adminId, onToast }) {
   const [creating, setCreating] = useState(false);
   const [createdInfo, setCreatedInfo] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [editWeeklyOff, setEditWeeklyOff] = useState([]);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("staff");
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -861,6 +862,7 @@ function StaffSection({ company, adminId, onToast }) {
     setEditingId(m.id);
     setEditName(m.displayName || "");
     setEditRole(m.role || "staff");
+    setEditWeeklyOff(Array.isArray(m.weeklyOff) ? m.weeklyOff : []);
   };
 
   const saveEdit = async (m) => {
@@ -868,6 +870,7 @@ function StaffSection({ company, adminId, onToast }) {
       await updateDoc(doc(db, "users", m.id), {
         displayName: editName.trim() || m.displayName,
         role: editRole,
+        weeklyOff: [...editWeeklyOff].sort(),
       });
       setEditingId(null);
       onToast("Member updated");
@@ -875,6 +878,11 @@ function StaffSection({ company, adminId, onToast }) {
       onToast(e.message || "Could not update", "error");
     }
   };
+
+  const toggleEditDay = (dow) =>
+    setEditWeeklyOff((prev) =>
+      prev.includes(dow) ? prev.filter((d) => d !== dow) : [...prev, dow],
+    );
 
   const removeMember = async (m) => {
     if (m.id === adminId) {
@@ -1097,21 +1105,47 @@ Jane Smith,jane@company.com,Sales`}
                     )}
                     <div className="min-w-0 flex-1">
                       {editingId === m.id ? (
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="input-field"
-                          />
-                          <select
-                            value={editRole}
-                            onChange={(e) => setEditRole(e.target.value)}
-                            className="input-field sm:max-w-[140px]"
-                          >
-                            <option value="staff">Staff</option>
-                            <option value="admin">Admin</option>
-                          </select>
+                        <div className="space-y-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="input-field"
+                            />
+                            <select
+                              value={editRole}
+                              onChange={(e) => setEditRole(e.target.value)}
+                              className="input-field sm:max-w-[140px]"
+                            >
+                              <option value="staff">Staff</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-xs text-[var(--text-muted)] mb-1.5">
+                              Recurring off days (in addition to company off-days)
+                            </p>
+                            <div className="flex gap-1 flex-wrap">
+                              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => {
+                                const active = editWeeklyOff.includes(i);
+                                return (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => toggleEditDay(i)}
+                                    className={`px-2.5 py-1 text-xs rounded-md border transition ${
+                                      active
+                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                        : "bg-[var(--bg-elev)] text-[var(--text-secondary)] border-[var(--border)]"
+                                    }`}
+                                  >
+                                    {d}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <>

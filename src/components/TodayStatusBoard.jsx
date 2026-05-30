@@ -13,17 +13,21 @@ import { formatTime12, formatDateKey, isCompanyHoliday, isWorkingDay } from "../
 //   not_in_yet  — working day, before office start, no record
 //   off         — non-working day for everyone
 export function TodayStatusBoard({ members, attendance, company, isAdmin = false }) {
-  const today = formatDateKey(new Date());
+  const todayDate = new Date();
+  const today = formatDateKey(todayDate);
   const officeStart = company?.officeStart || "10:00";
-  const now = new Date();
-  const nowHHMM = now.toTimeString().slice(0, 5);
+  const nowHHMM = todayDate.toTimeString().slice(0, 5);
   const beforeOfficeStart = nowHHMM < officeStart;
+  const dow = todayDate.getDay();
 
-  const dayInfo = useMemo(() => {
-    const isHoliday = isCompanyHoliday(today, company);
-    const isWorking = isWorkingDay(today, company);
-    return { isHoliday, isWorking };
-  }, [today, company]);
+  const dayInfo = useMemo(
+    () => ({
+      isHoliday: isCompanyHoliday(todayDate, company?.holidays || []),
+      isWorking: isWorkingDay(todayDate, company?.workingDays || [0, 1, 2, 3, 4, 5]),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [today, company?.holidays, company?.workingDays],
+  );
 
   const rows = useMemo(() => {
     const staff = (members || []).filter((m) => (m.role || "staff") === "staff");
@@ -31,6 +35,8 @@ export function TodayStatusBoard({ members, attendance, company, isAdmin = false
       const rec = (attendance || []).find(
         (a) => a.userId === m.id && a.date === today,
       );
+      // Per-member recurring off pattern (e.g. part-time staff who skip Fridays).
+      const memberOffToday = Array.isArray(m.weeklyOff) && m.weeklyOff.includes(dow);
       let status;
       let detail = "";
       if (dayInfo.isHoliday) {
@@ -39,6 +45,9 @@ export function TodayStatusBoard({ members, attendance, company, isAdmin = false
       } else if (!dayInfo.isWorking) {
         status = "off";
         detail = "Day off";
+      } else if (memberOffToday && !rec?.entryTime) {
+        status = "off";
+        detail = "Recurring off day";
       } else if (rec?.status === "leave") {
         status = "on_leave";
         detail = rec.leaveType ? `On leave (${rec.leaveType})` : "On leave";
