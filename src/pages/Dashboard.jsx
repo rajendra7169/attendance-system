@@ -357,6 +357,19 @@ function StaffDashboard({ user, userDoc, company }) {
   const [showYearReview, setShowYearReview] = useState(false);
   const [toast, setToast] = useState(null);
 
+  // Admin can hide individual cards via Company settings → Staff dashboard
+  // visibility. Defaults to all-visible (legacy behavior) when no setting saved.
+  const vis = useMemo(() => {
+    const v = company?.visibility || {};
+    return {
+      goals: v.goals !== false,
+      leaveBalance: v.leaveBalance !== false,
+      achievements: v.achievements !== false,
+      forest: v.forest !== false,
+      yearReview: v.yearReview !== false,
+    };
+  }, [company?.visibility]);
+
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2800);
@@ -605,14 +618,16 @@ function StaffDashboard({ user, userDoc, company }) {
               <CalendarRange className="w-4 h-4" />
               Request leave
             </button>
-            <button
-              onClick={() => setShowYearReview(true)}
-              className="btn btn-secondary"
-              title="Your year in review"
-            >
-              <Gift className="w-4 h-4" />
-              {new Date().getFullYear()} Wrapped
-            </button>
+            {vis.yearReview && (
+              <button
+                onClick={() => setShowYearReview(true)}
+                className="btn btn-secondary"
+                title="Your year in review"
+              >
+                <Gift className="w-4 h-4" />
+                {new Date().getFullYear()} Wrapped
+              </button>
+            )}
           </div>
 
           <OfficePresence company={company} onChange={setPresence} />
@@ -761,28 +776,47 @@ function StaffDashboard({ user, userDoc, company }) {
           </div>
         )}
 
-        {/* Goal + Leave balance */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          <GoalsCard userId={user.uid} attendance={attendance} />
-          <LeaveBalanceCard records={attendance} company={company} />
-        </div>
+        {/* Goal + Leave balance — admin can hide either; the row collapses
+            with no blank space and the surviving card takes the full width. */}
+        {(() => {
+          const cards = [];
+          if (vis.goals)
+            cards.push(<GoalsCard key="g" userId={user.uid} attendance={attendance} />);
+          if (vis.leaveBalance)
+            cards.push(<LeaveBalanceCard key="lb" records={attendance} company={company} />);
+          if (cards.length === 0) return null;
+          return (
+            <div
+              className={`grid gap-4 mb-6 ${
+                cards.length === 2 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+              }`}
+            >
+              {cards}
+            </div>
+          );
+        })()}
 
-        {/* Compact achievements row */}
-        <div className="mb-6">
-          <AchievementsBoard records={attendance} company={company} compact />
-        </div>
+        {vis.achievements && (
+          <div className="mb-6">
+            <AchievementsBoard records={attendance} company={company} compact />
+          </div>
+        )}
 
-        <div className="mb-6">
-          <Forest
-            records={attendance}
-            company={company}
-            joinedAt={userDoc.joinedAt}
-          />
-        </div>
+        {vis.forest && (
+          <div className="mb-6">
+            <Forest
+              records={attendance}
+              company={company}
+              joinedAt={userDoc.joinedAt}
+            />
+          </div>
+        )}
 
-        <div className="mb-6">
-          <AchievementsBoard records={attendance} company={company} />
-        </div>
+        {vis.achievements && (
+          <div className="mb-6">
+            <AchievementsBoard records={attendance} company={company} />
+          </div>
+        )}
 
         <button
           onClick={() => navigate("/me")}

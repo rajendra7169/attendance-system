@@ -48,6 +48,7 @@ import {
   Crown,
   Shield,
   MapPin,
+  Eye,
 } from "lucide-react";
 
 const TABS = [
@@ -56,6 +57,16 @@ const TABS = [
   { id: "approvals", label: "Approvals", icon: Clock },
   { id: "reports", label: "Reports", icon: FileDown },
   { id: "activity", label: "Activity", icon: History },
+];
+
+// Keep this in sync with the conditional cards in StaffDashboard.
+// `key` is the company.visibility field; absence/true = visible, false = hidden.
+const VISIBILITY_ITEMS = [
+  { key: "goals", label: "Monthly goal card", hint: "Per-staff target for this month's working days" },
+  { key: "leaveBalance", label: "Leave balance card", hint: "Annual / sick / casual leave remaining for the year" },
+  { key: "achievements", label: "Achievements board", hint: "Badges and milestones — both compact and expanded views" },
+  { key: "forest", label: "Personal forest", hint: "Their tree-growing attendance visualization" },
+  { key: "yearReview", label: "Year-in-review button", hint: "Spotify-Wrapped style yearly recap" },
 ];
 
 export function Admin() {
@@ -181,6 +192,7 @@ function CompanySection({ company, onToast }) {
   const [officeLng, setOfficeLng] = useState(company.officeLng ?? "");
   const [officeRadius, setOfficeRadius] = useState(company.officeRadius ?? 100);
   const [locating, setLocating] = useState(false);
+  const [visibility, setVisibility] = useState(company.visibility || {});
 
   const handleHolidayImport = async () => {
     setImporting(true);
@@ -263,6 +275,7 @@ function CompanySection({ company, onToast }) {
         officeLat: officeLat === "" ? null : Number(officeLat),
         officeLng: officeLng === "" ? null : Number(officeLng),
         officeRadius: Number(officeRadius) || 100,
+        visibility,
         updatedAt: serverTimestamp(),
       });
       onToast("Settings saved");
@@ -450,6 +463,46 @@ function CompanySection({ company, onToast }) {
           <MapPin className="w-4 h-4" />
           {locating ? "Getting location..." : "Use my current location"}
         </button>
+      </section>
+
+      <section className="surface-elevated p-6 sm:p-8">
+        <h2 className="text-lg font-semibold tracking-tight mb-1 flex items-center gap-2">
+          <Eye className="w-5 h-5 text-indigo-600" />
+          Staff dashboard visibility
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mb-4">
+          Turn off any card you don't want staff to see. Hidden cards leave no
+          blank space — remaining cards expand to fill the row.
+        </p>
+        <div className="divide-y divide-[var(--border)]">
+          {VISIBILITY_ITEMS.map((item) => {
+            const on = visibility[item.key] !== false;
+            return (
+              <div key={item.key} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibility((v) => ({ ...v, [item.key]: !on }))
+                  }
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition mt-0.5 ${
+                    on ? "bg-emerald-500" : "bg-[var(--border-strong)]"
+                  }`}
+                  aria-label={`Toggle ${item.label}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition mt-0.5 ${
+                      on ? "translate-x-4.5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{item.label}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{item.hint}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       <section className="surface-elevated p-6 sm:p-8">
