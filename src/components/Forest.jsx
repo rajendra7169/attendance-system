@@ -365,39 +365,87 @@ function Bird({ y, size, duration, delay, canvasW, reversed }) {
 }
 
 /* ---------- Animals ---------- */
-function Animal({ kind, x, y }) {
-  if (kind === "rabbit") {
+function RabbitShape({ flip }) {
+  return (
+    <g transform={flip ? "scale(-1, 1)" : undefined}>
+      <ellipse cx="0" cy="2" rx="9" ry="2" fill="#000" opacity="0.15" />
+      <ellipse cx="0" cy="-4" rx="8" ry="6" fill="#fafafa" />
+      <circle cx="6" cy="-8" r="4" fill="#fafafa" />
+      <ellipse cx="5" cy="-15" rx="1.2" ry="4" fill="#fafafa" />
+      <ellipse cx="8" cy="-15" rx="1.2" ry="4" fill="#fafafa" />
+      <ellipse cx="5" cy="-15" rx="0.6" ry="3" fill="#fbcfe8" />
+      <ellipse cx="8" cy="-15" rx="0.6" ry="3" fill="#fbcfe8" />
+      <circle cx="7.5" cy="-9" r="0.6" fill="#1f2937" />
+      <circle cx="-7" cy="-3" r="2" fill="#fafafa" />
+    </g>
+  );
+}
+
+function DeerShape({ flip }) {
+  return (
+    <g transform={flip ? "scale(-1, 1)" : undefined}>
+      <ellipse cx="0" cy="2" rx="14" ry="3" fill="#000" opacity="0.15" />
+      <ellipse cx="0" cy="-8" rx="12" ry="6" fill="#b45309" />
+      <ellipse cx="11" cy="-13" rx="3" ry="4" fill="#b45309" />
+      <path d="M10,-17 L8,-22 M10,-17 L13,-22 M12,-17 L14,-21" stroke="#78350f" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+      <rect x="-8" y="-4" width="2" height="6" fill="#78350f">
+        <animateTransform attributeName="transform" type="translate" values="0 0; 0 -1.5; 0 0" dur="0.6s" repeatCount="indefinite" />
+      </rect>
+      <rect x="-3" y="-4" width="2" height="6" fill="#78350f">
+        <animateTransform attributeName="transform" type="translate" values="0 -1.5; 0 0; 0 -1.5" dur="0.6s" repeatCount="indefinite" />
+      </rect>
+      <rect x="3" y="-4" width="2" height="6" fill="#78350f">
+        <animateTransform attributeName="transform" type="translate" values="0 0; 0 -1.5; 0 0" dur="0.6s" repeatCount="indefinite" />
+      </rect>
+      <rect x="8" y="-4" width="2" height="6" fill="#78350f">
+        <animateTransform attributeName="transform" type="translate" values="0 -1.5; 0 0; 0 -1.5" dur="0.6s" repeatCount="indefinite" />
+      </rect>
+      <circle cx="12.5" cy="-13.5" r="0.5" fill="#1f2937" />
+      <circle cx="-3" cy="-9" r="1.2" fill="#fef3c7" opacity="0.7" />
+      <circle cx="2" cy="-7" r="1" fill="#fef3c7" opacity="0.7" />
+      <circle cx="5" cy="-10" r="1" fill="#fef3c7" opacity="0.7" />
+    </g>
+  );
+}
+
+function Animal({ kind, x, y, motion }) {
+  // Roaming animals (rabbit, deer) follow a back-and-forth path along a
+  // river-bank corridor. The outer <g> rides the path via animateMotion;
+  // an inner <g> bobs/hops in place; the body flips horizontally when
+  // walking right→left so the head always leads.
+  if (motion) {
+    const { x1, x2, y: my, dur } = motion;
+    const hopValues = kind === "rabbit"
+      ? "0 0; 0 -8; 0 0; 0 -2; 0 0"
+      : "0 0; 0 -1.5; 0 0";
+    const hopDur = kind === "rabbit" ? "0.9s" : "1.4s";
+    const facesLeftOnReturn = x2 < x1;
     return (
-      <g transform={`translate(${x}, ${y})`}>
-        <ellipse cx="0" cy="2" rx="9" ry="2" fill="#000" opacity="0.15" />
-        <ellipse cx="0" cy="-4" rx="8" ry="6" fill="#fafafa" />
-        <circle cx="6" cy="-8" r="4" fill="#fafafa" />
-        <ellipse cx="5" cy="-15" rx="1.2" ry="4" fill="#fafafa" />
-        <ellipse cx="8" cy="-15" rx="1.2" ry="4" fill="#fafafa" />
-        <ellipse cx="5" cy="-15" rx="0.6" ry="3" fill="#fbcfe8" />
-        <ellipse cx="8" cy="-15" rx="0.6" ry="3" fill="#fbcfe8" />
-        <circle cx="7.5" cy="-9" r="0.6" fill="#1f2937" />
-        <circle cx="-7" cy="-3" r="2" fill="#fafafa" />
+      <g>
+        <animateMotion
+          dur={`${dur}s`}
+          repeatCount="indefinite"
+          path={`M${x1},${my} L${x2},${my} L${x1},${my}`}
+        />
+        <g>
+          <animateTransform
+            attributeName="transform"
+            type="translate"
+            values={hopValues}
+            dur={hopDur}
+            repeatCount="indefinite"
+          />
+          {kind === "rabbit" && <RabbitShape flip={!facesLeftOnReturn} />}
+          {kind === "deer" && <DeerShape flip={!facesLeftOnReturn} />}
+        </g>
       </g>
     );
   }
+  if (kind === "rabbit") {
+    return <g transform={`translate(${x}, ${y})`}><RabbitShape /></g>;
+  }
   if (kind === "deer") {
-    return (
-      <g transform={`translate(${x}, ${y})`}>
-        <ellipse cx="0" cy="2" rx="14" ry="3" fill="#000" opacity="0.15" />
-        <ellipse cx="0" cy="-8" rx="12" ry="6" fill="#b45309" />
-        <ellipse cx="11" cy="-13" rx="3" ry="4" fill="#b45309" />
-        <path d="M10,-17 L8,-22 M10,-17 L13,-22 M12,-17 L14,-21" stroke="#78350f" strokeWidth="1.2" fill="none" strokeLinecap="round" />
-        <rect x="-8" y="-4" width="2" height="6" fill="#78350f" />
-        <rect x="-3" y="-4" width="2" height="6" fill="#78350f" />
-        <rect x="3" y="-4" width="2" height="6" fill="#78350f" />
-        <rect x="8" y="-4" width="2" height="6" fill="#78350f" />
-        <circle cx="12.5" cy="-13.5" r="0.5" fill="#1f2937" />
-        <circle cx="-3" cy="-9" r="1.2" fill="#fef3c7" opacity="0.7" />
-        <circle cx="2" cy="-7" r="1" fill="#fef3c7" opacity="0.7" />
-        <circle cx="5" cy="-10" r="1" fill="#fef3c7" opacity="0.7" />
-      </g>
-    );
+    return <g transform={`translate(${x}, ${y})`}><DeerShape /></g>;
   }
   if (kind === "butterfly") {
     return (
@@ -648,16 +696,15 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
       const seed = `${r.userId || "self"}_${r.date}`;
       const xPct = rand01(seed + "x") * 0.86 + 0.07;
 
-      // Avoid the river band (~y 0.76–0.91). Place 60% of trees ABOVE the river,
-      // 40% BELOW it on the foreground bank.
+      // Avoid the river (0.76–0.91) AND the animal corridors that hug each
+      // bank (above: 0.70–0.76, below: 0.91–0.94). Trees only grow in the
+      // 0.60–0.70 mid-ground or the 0.94–0.97 close foreground.
       const rawY = rand01(seed + "y");
       let yPct;
       if (rawY < 0.6) {
-        // Above river: 0.60–0.74 (middle ground)
-        yPct = 0.60 + (rawY / 0.6) * 0.14;
+        yPct = 0.60 + (rawY / 0.6) * 0.10;
       } else {
-        // Below river: 0.92–0.97 (close-up foreground)
-        yPct = 0.92 + ((rawY - 0.6) / 0.4) * 0.05;
+        yPct = 0.94 + ((rawY - 0.6) / 0.4) * 0.03;
       }
 
       const recordDate = new Date(r.date);
@@ -801,15 +848,28 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
     return arr;
   }, []);
 
+  // Animals walk along corridors that hug each river bank — no trees grow
+  // here, so they always have a clear lane. `corridor` is "above" (far bank)
+  // or "below" (near bank); ground animals are rendered before trees so trees
+  // can occlude them, butterflies float above everything.
   const animals = useMemo(() => {
     const arr = [];
-    if (grownCount >= 1) arr.push({ kind: "butterfly", id: "bfly-1", x: 0.3, y: 0.45 });
-    if (grownCount >= 3) arr.push({ kind: "rabbit", id: "rabbit-1", x: 0.18, y: 0.88 });
-    if (grownCount >= 7) arr.push({ kind: "butterfly", id: "bfly-2", x: 0.68, y: 0.52 });
-    if (grownCount >= 10) arr.push({ kind: "deer", id: "deer-1", x: 0.82, y: 0.86 });
-    if (grownCount >= 14) arr.push({ kind: "rabbit", id: "rabbit-2", x: 0.55, y: 0.92 });
+    if (grownCount >= 1) arr.push({ kind: "butterfly", id: "bfly-1", x: 0.30, y: 0.48 });
+    if (grownCount >= 3) {
+      arr.push({ kind: "rabbit", id: "rabbit-1", corridor: "below", x1: 0.10, x2: 0.45, y: 0.935, dur: 22 });
+    }
+    if (grownCount >= 7) arr.push({ kind: "butterfly", id: "bfly-2", x: 0.65, y: 0.52 });
+    if (grownCount >= 10) {
+      arr.push({ kind: "deer", id: "deer-1", corridor: "above", x1: 0.78, x2: 0.32, y: 0.735, dur: 42 });
+    }
+    if (grownCount >= 14) {
+      arr.push({ kind: "rabbit", id: "rabbit-2", corridor: "below", x1: 0.88, x2: 0.55, y: 0.925, dur: 26 });
+    }
     return arr;
   }, [grownCount]);
+
+  const groundAnimals = useMemo(() => animals.filter((a) => a.kind !== "butterfly"), [animals]);
+  const airAnimals = useMemo(() => animals.filter((a) => a.kind === "butterfly"), [animals]);
 
   const changeMonth = (delta) => {
     let m = month + delta, y = year;
@@ -1124,6 +1184,19 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
               return <Grass key={g.id} x={g.x} y={g.y} size={g.size} color={g.shade} kind={g.kind} flowerColor={g.flowerColor} />;
             })}
 
+            {groundAnimals.map((a) => (
+              <Animal
+                key={a.id}
+                kind={a.kind}
+                motion={{
+                  x1: a.x1 * canvas.w,
+                  x2: a.x2 * canvas.w,
+                  y: a.y * canvas.h,
+                  dur: a.dur,
+                }}
+              />
+            ))}
+
             {trees.map((t) => (
               <Tree
                 key={t.id}
@@ -1135,7 +1208,7 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
               />
             ))}
 
-            {animals.map((a) => (
+            {airAnimals.map((a) => (
               <Animal key={a.id} kind={a.kind} x={a.x * canvas.w} y={a.y * canvas.h} />
             ))}
 
