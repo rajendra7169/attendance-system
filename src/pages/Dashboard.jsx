@@ -46,6 +46,7 @@ import { GoalsCard } from "../components/GoalsCard";
 import { LeaveBalanceCard } from "../components/LeaveBalanceCard";
 import { YearInReview } from "../components/YearInReview";
 import { OfficePresence } from "../components/OfficePresence";
+import { TodayStatusBoard } from "../components/TodayStatusBoard";
 import { Gift } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -264,6 +265,15 @@ function AdminDashboard({ user, userDoc, company }) {
           />
         </div>
 
+        <div className="mb-8">
+          <TodayStatusBoard
+            members={members}
+            attendance={attendance}
+            company={company}
+            isAdmin
+          />
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Team Members</h2>
@@ -356,6 +366,8 @@ function StaffDashboard({ user, userDoc, company }) {
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [showYearReview, setShowYearReview] = useState(false);
   const [toast, setToast] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [teamTodayAttendance, setTeamTodayAttendance] = useState([]);
 
   // Admin can hide individual cards via Company settings → Staff dashboard
   // visibility. Defaults to all-visible (legacy behavior) when no setting saved.
@@ -367,8 +379,33 @@ function StaffDashboard({ user, userDoc, company }) {
       achievements: v.achievements !== false,
       forest: v.forest !== false,
       yearReview: v.yearReview !== false,
+      todayBoard: v.todayBoard !== false,
     };
   }, [company?.visibility]);
+
+  // Live team feed for the Today's status board. Members list snapshot +
+  // today-only attendance snapshot keeps reads small while still updating in
+  // real time as coworkers check in.
+  useEffect(() => {
+    if (!company?.id || !vis.todayBoard) return;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const unsubMembers = onSnapshot(
+      query(collection(db, "users"), where("companyId", "==", company.id)),
+      (snap) => setTeamMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    );
+    const unsubAtt = onSnapshot(
+      query(
+        collection(db, "attendance"),
+        where("companyId", "==", company.id),
+        where("date", "==", todayStr),
+      ),
+      (snap) => setTeamTodayAttendance(snap.docs.map((d) => d.data())),
+    );
+    return () => {
+      unsubMembers();
+      unsubAtt();
+    };
+  }, [company?.id, vis.todayBoard]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -752,6 +789,16 @@ function StaffDashboard({ user, userDoc, company }) {
             </div>
           )}
         </div>
+
+        {vis.todayBoard && teamMembers.length > 0 && (
+          <div className="mb-6">
+            <TodayStatusBoard
+              members={teamMembers}
+              attendance={teamTodayAttendance}
+              company={company}
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatTile icon={CalendarDays} label="On time" value={stats.onTime} tone="success" />

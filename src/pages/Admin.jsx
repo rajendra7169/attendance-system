@@ -62,6 +62,7 @@ const TABS = [
 // Keep this in sync with the conditional cards in StaffDashboard.
 // `key` is the company.visibility field; absence/true = visible, false = hidden.
 const VISIBILITY_ITEMS = [
+  { key: "todayBoard", label: "Today's status board", hint: "Live list of who's in, late, on leave, or absent today" },
   { key: "goals", label: "Monthly goal card", hint: "Per-staff target for this month's working days" },
   { key: "leaveBalance", label: "Leave balance card", hint: "Annual / sick / casual leave remaining for the year" },
   { key: "achievements", label: "Achievements board", hint: "Badges and milestones — both compact and expanded views" },
