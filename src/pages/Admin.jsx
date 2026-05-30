@@ -1420,9 +1420,22 @@ function ReportsSection({ company, onToast }) {
     fetchData();
   }, [company?.id]);
 
+  // Reports are about staff only — admins are excluded from the dropdown
+  // AND from exported records, so an admin's own attendance never shows up
+  // (and we never fall back to rendering their raw uid as "random text").
+  const staffMembers = useMemo(
+    () => members.filter((m) => (m.role || "staff") === "staff"),
+    [members],
+  );
+  const staffIds = useMemo(
+    () => new Set(staffMembers.map((m) => m.id)),
+    [staffMembers],
+  );
+
   const filtered = useMemo(() => {
     const now = new Date();
     return attendance.filter((r) => {
+      if (!staffIds.has(r.userId)) return false;
       if (memberFilter !== "all" && r.userId !== memberFilter) return false;
       if (period === "all") return true;
       const recordDate = new Date(r.date);
@@ -1432,12 +1445,12 @@ function ReportsSection({ company, onToast }) {
         : 365;
       return (now - recordDate) / 86400000 <= days;
     });
-  }, [attendance, period, memberFilter]);
+  }, [attendance, period, memberFilter, staffIds]);
 
   const handleCSV = async () => {
     setExporting(true);
     try {
-      exportAttendanceCSV({ records: filtered, members, company, dateRange: period });
+      exportAttendanceCSV({ records: filtered, members: staffMembers, company, dateRange: period });
       onToast("CSV downloaded");
     } catch (e) {
       onToast(e.message || "Export failed", "error");
@@ -1457,7 +1470,7 @@ function ReportsSection({ company, onToast }) {
       };
       await exportAttendancePDF({
         records: filtered,
-        members,
+        members: staffMembers,
         company,
         periodLabel: labels[period],
       });
@@ -1508,7 +1521,7 @@ function ReportsSection({ company, onToast }) {
               className="input-field"
             >
               <option value="all">All members</option>
-              {members.map((m) => (
+              {staffMembers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.displayName}
                 </option>
