@@ -644,15 +644,18 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
     filtered.forEach((r) => {
       const c = classify(r, officeStart, officeEnd, now);
       if (!c) return;
-      const xPct = rand01(r.date + "x") * 0.86 + 0.07;
-      const yPct = rand01(r.date + "y") * 0.55 + 0.4;
+      // Use userId+date so trees for different staff don't stack at the same spot
+      const seed = `${r.userId || "self"}_${r.date}`;
+      const xPct = rand01(seed + "x") * 0.86 + 0.07;
+      const yPct = rand01(seed + "y") * 0.55 + 0.4;
       const recordDate = new Date(r.date);
       const anniv = joinedAt && isAnniversary(joinedAt, recordDate);
       items.push({
+        id: seed,
         date: r.date,
         record: r,
         ...c,
-        shape: pickShape(r.date + "s"),
+        shape: pickShape(seed + "s"),
         xPct, yPct, isAnniv: anniv,
       });
     });
@@ -1092,7 +1095,7 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
 
             {trees.map((t) => (
               <Tree
-                key={t.date}
+                key={t.id}
                 x={t.xPct * canvas.w} y={t.yPct * canvas.h}
                 size={t.size} kind={t.kind} shape={t.shape} date={t.date}
                 pending={t.pending} growing={t.growing} isAnniv={t.isAnniv}

@@ -321,11 +321,13 @@ function AdminDashboard({ user, userDoc, company }) {
           </div>
         )}
 
-        {/* Team-wide combined forest */}
-        {!loadingData && attendance.length > 0 && (
+        {/* Team-wide combined forest — staff only, admin's own attendance excluded */}
+        {!loadingData && staffOnly.length > 0 && (
           <div className="mt-8">
             <Forest
-              records={attendance}
+              records={attendance.filter((a) =>
+                staffOnly.some((m) => m.id === a.userId),
+              )}
               company={company}
               title="Team-wide forest"
               isAdmin
