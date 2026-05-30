@@ -51,6 +51,7 @@ import { YearInReview } from "../components/YearInReview";
 import { OfficePresence } from "../components/OfficePresence";
 import { TodayStatusBoard } from "../components/TodayStatusBoard";
 import { notifyTeam } from "../utils/webhooks";
+import { useTranslation } from "../utils/i18n";
 import { Gift } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -86,6 +87,7 @@ export function Dashboard() {
 
 function AdminDashboard({ user, userDoc, company }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [members, setMembers] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -179,9 +181,9 @@ function AdminDashboard({ user, userDoc, company }) {
     userDoc.displayName?.split(" ")[0] || user.email?.split("@")[0] || "there";
   const greeting = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return t("greeting.morning");
+    if (h < 18) return t("greeting.afternoon");
+    return t("greeting.evening");
   })();
 
   return (
@@ -372,6 +374,7 @@ function StaffDashboard({ user, userDoc, company }) {
   const [toast, setToast] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamTodayAttendance, setTeamTodayAttendance] = useState([]);
+  const { t } = useTranslation();
 
   // Admin can hide individual cards via Company settings → Staff dashboard
   // visibility. Defaults to all-visible (legacy behavior) when no setting saved.
@@ -622,9 +625,9 @@ function StaffDashboard({ user, userDoc, company }) {
     userDoc.displayName?.split(" ")[0] || user.email?.split("@")[0] || "there";
   const greeting = (() => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return t("greeting.morning");
+    if (h < 18) return t("greeting.afternoon");
+    return t("greeting.evening");
   })();
 
   return (
@@ -712,7 +715,7 @@ function StaffDashboard({ user, userDoc, company }) {
               {firstName}
             </h1>
             <p className="text-[var(--text-secondary)] mt-2">
-              Submit your attendance and track your record.
+              {t("dashboard.subtitle")}
             </p>
           </div>
         </div>
@@ -722,7 +725,7 @@ function StaffDashboard({ user, userDoc, company }) {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
             <div>
               <p className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-1">
-                Today
+                {t("dashboard.today")}
               </p>
               <h2 className="text-xl font-semibold tracking-tight">
                 {new Date().toLocaleDateString(undefined, {
@@ -737,7 +740,7 @@ function StaffDashboard({ user, userDoc, company }) {
               className="btn btn-secondary"
             >
               <CalendarRange className="w-4 h-4" />
-              Request leave
+              {t("dashboard.request_leave")}
             </button>
             {vis.yearReview && (
               <button
@@ -772,9 +775,9 @@ function StaffDashboard({ user, userDoc, company }) {
                   />
                 </button>
                 <span className="text-sm text-[var(--text-secondary)]">
-                  Half day{" "}
+                  {t("checkin.half_day")}{" "}
                   <span className="text-[var(--text-muted)]">
-                    (counts as 0.5)
+                    {t("checkin.half_day_hint")}
                   </span>
                 </span>
               </label>
@@ -785,12 +788,12 @@ function StaffDashboard({ user, userDoc, company }) {
               >
                 {actioning ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" /> Checking in...
+                    <Loader2 className="w-5 h-5 animate-spin" /> {t("checkin.in_progress")}
                   </>
                 ) : (
                   <>
                     <LogIn className="w-5 h-5" />
-                    {halfDay ? "Check in (half day)" : "Check in now"}
+                    {halfDay ? t("checkin.half_button") : t("checkin.now")}
                   </>
                 )}
               </button>

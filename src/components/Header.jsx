@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { LogOut, Settings, LayoutDashboard, User, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, User, Sun, Moon, Languages } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import { useTheme } from "../hooks/useTheme";
+import { useTranslation, LANGUAGES } from "../utils/i18n";
 
 export function Header() {
   const { user, userDoc, company, logout, isAdmin } = useAuth();
@@ -17,6 +18,8 @@ export function Header() {
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
   const { theme, toggle: toggleTheme } = useTheme();
+  const { lang, setLang, t } = useTranslation();
+  const [langOpen, setLangOpen] = useState(false);
 
   // Live count of pending approvals for admin
   useEffect(() => {
@@ -90,7 +93,7 @@ export function Header() {
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
-              Dashboard
+              {t("nav.dashboard")}
             </button>
             {!isAdmin && (
               <button
@@ -102,7 +105,7 @@ export function Header() {
                 }`}
               >
                 <User className="w-4 h-4" />
-                My attendance
+                {t("nav.my_attendance")}
               </button>
             )}
             {isAdmin && (
@@ -115,7 +118,7 @@ export function Header() {
                 }`}
               >
                 <Settings className="w-4 h-4" />
-                Admin
+                {t("nav.admin")}
                 {pendingCount > 0 && (
                   <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-rose-500 text-white tabular-nums">
                     {pendingCount}
@@ -148,6 +151,38 @@ export function Header() {
                 {initials}
               </div>
             )}
+            <div className="relative">
+              <button
+                onClick={() => setLangOpen((v) => !v)}
+                onBlur={() => setTimeout(() => setLangOpen(false), 150)}
+                className="btn btn-ghost btn-icon"
+                title={t("nav.language")}
+                aria-label={t("nav.language")}
+              >
+                <Languages className="w-4 h-4" />
+              </button>
+              {langOpen && (
+                <div className="absolute right-0 mt-1 w-36 surface-elevated p-1 z-50">
+                  {LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onMouseDown={() => {
+                        setLang(l.code);
+                        setLangOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition ${
+                        lang === l.code
+                          ? "bg-[var(--bg-soft)] text-[var(--text)] font-medium"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-soft)]"
+                      }`}
+                    >
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={toggleTheme}
               className="btn btn-ghost btn-icon"
