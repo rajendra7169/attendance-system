@@ -47,6 +47,7 @@ import { LeaveBalanceCard } from "../components/LeaveBalanceCard";
 import { YearInReview } from "../components/YearInReview";
 import { OfficePresence } from "../components/OfficePresence";
 import { TodayStatusBoard } from "../components/TodayStatusBoard";
+import { notifyTeam } from "../utils/webhooks";
 import { Gift } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -492,6 +493,15 @@ function StaffDashboard({ user, userDoc, company }) {
         ...prev.filter((a) => a.date !== today),
         payload,
       ]);
+      // Notify the team channel only when the entry actually needs review.
+      // Auto-approved check-ins are noise — skip them.
+      if (payload.state === "pending") {
+        const who = userDoc?.displayName || user.email || "Someone";
+        notifyTeam(
+          company,
+          `:hourglass_flowing_sand: *${who}* submitted attendance for ${today}${halfDay ? " (half day)" : ""} — pending approval.`,
+        );
+      }
       showToast(
         halfDay
           ? `Half day check-in at ${formatTime12(payload.entryTime)}`

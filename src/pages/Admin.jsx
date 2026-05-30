@@ -49,6 +49,7 @@ import {
   Shield,
   MapPin,
   Eye,
+  Bell,
 } from "lucide-react";
 
 const TABS = [
@@ -194,6 +195,8 @@ function CompanySection({ company, onToast }) {
   const [officeRadius, setOfficeRadius] = useState(company.officeRadius ?? 100);
   const [locating, setLocating] = useState(false);
   const [visibility, setVisibility] = useState(company.visibility || {});
+  const [slackWebhook, setSlackWebhook] = useState(company.slackWebhook || "");
+  const [discordWebhook, setDiscordWebhook] = useState(company.discordWebhook || "");
 
   const handleHolidayImport = async () => {
     setImporting(true);
@@ -277,6 +280,8 @@ function CompanySection({ company, onToast }) {
         officeLng: officeLng === "" ? null : Number(officeLng),
         officeRadius: Number(officeRadius) || 100,
         visibility,
+        slackWebhook: slackWebhook.trim(),
+        discordWebhook: discordWebhook.trim(),
         updatedAt: serverTimestamp(),
       });
       onToast("Settings saved");
@@ -464,6 +469,39 @@ function CompanySection({ company, onToast }) {
           <MapPin className="w-4 h-4" />
           {locating ? "Getting location..." : "Use my current location"}
         </button>
+      </section>
+
+      <section className="surface-elevated p-6 sm:p-8">
+        <h2 className="text-lg font-semibold tracking-tight mb-1 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-indigo-600" />
+          Team notifications
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mb-4">
+          Paste an Incoming Webhook URL from Slack or Discord to ping your team
+          when staff submit attendance for approval. Leave blank to disable.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="label">Slack webhook URL</label>
+            <input
+              type="url"
+              value={slackWebhook}
+              onChange={(e) => setSlackWebhook(e.target.value)}
+              placeholder="https://hooks.slack.com/services/T.../B.../..."
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label">Discord webhook URL</label>
+            <input
+              type="url"
+              value={discordWebhook}
+              onChange={(e) => setDiscordWebhook(e.target.value)}
+              placeholder="https://discord.com/api/webhooks/.../..."
+              className="input-field"
+            />
+          </div>
+        </div>
       </section>
 
       <section className="surface-elevated p-6 sm:p-8">
