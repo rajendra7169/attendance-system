@@ -31,6 +31,9 @@ import {
   Check,
   LogIn,
   LogOut,
+  Coffee,
+  Pause,
+  Play,
 } from "lucide-react";
 import {
   getAttendanceStats,
@@ -538,9 +541,17 @@ function StaffDashboard({ user, userDoc, company }) {
     try {
       const docId = `${user.uid}_${today}`;
       const exitTime = nowHHMM();
-      await updateDoc(doc(db, "attendance", docId), { exitTime });
+      const update = { exitTime };
+      // If they checked out while still on a break, auto-close it.
+      const breaks = [...(todayRecord.breaks || [])];
+      const openIdx = breaks.findIndex((b) => b.start && !b.end);
+      if (openIdx >= 0) {
+        breaks[openIdx] = { ...breaks[openIdx], end: exitTime };
+        update.breaks = breaks;
+      }
+      await updateDoc(doc(db, "attendance", docId), update);
       setAttendance((prev) =>
-        prev.map((a) => (a.date === today ? { ...a, exitTime } : a)),
+        prev.map((a) => (a.date === today ? { ...a, ...update } : a)),
       );
       showToast(`Checked out at ${formatTime12(exitTime)}`);
     } catch (e) {
@@ -549,6 +560,63 @@ function StaffDashboard({ user, userDoc, company }) {
       setActioning(false);
     }
   };
+
+  const handleStartBreak = async () => {
+    if (!company?.id || actioning || !todayRecord) return;
+    setActioning(true);
+    try {
+      const docId = `${user.uid}_${today}`;
+      const breaks = [...(todayRecord.breaks || []), { start: nowHHMM(), end: "" }];
+      await updateDoc(doc(db, "attendance", docId), { breaks });
+      setAttendance((prev) =>
+        prev.map((a) => (a.date === today ? { ...a, breaks } : a)),
+      );
+      showToast("Break started");
+    } catch (e) {
+      showToast(e.message || "Could not start break", "error");
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    if (!company?.id || actioning || !todayRecord) return;
+    setActioning(true);
+    try {
+      const docId = `${user.uid}_${today}`;
+      const breaks = [...(todayRecord.breaks || [])];
+      const openIdx = breaks.findIndex((b) => b.start && !b.end);
+      if (openIdx < 0) {
+        setActioning(false);
+        return;
+      }
+      breaks[openIdx] = { ...breaks[openIdx], end: nowHHMM() };
+      await updateDoc(doc(db, "attendance", docId), { breaks });
+      setAttendance((prev) =>
+        prev.map((a) => (a.date === today ? { ...a, breaks } : a)),
+      );
+      showToast("Break ended");
+    } catch (e) {
+      showToast(e.message || "Could not end break", "error");
+    } finally {
+      setActioning(false);
+    }
+  };
+
+  const breakTotalMin = useMemo(() => {
+    const breaks = todayRecord?.breaks || [];
+    return breaks.reduce((sum, b) => {
+      if (!b.start || !b.end) return sum;
+      const [sh, sm] = b.start.split(":").map(Number);
+      const [eh, em] = b.end.split(":").map(Number);
+      return sum + Math.max(0, eh * 60 + em - (sh * 60 + sm));
+    }, 0);
+  }, [todayRecord?.breaks]);
+
+  const onBreak = useMemo(
+    () => (todayRecord?.breaks || []).some((b) => b.start && !b.end),
+    [todayRecord?.breaks],
+  );
 
   const firstName =
     userDoc.displayName?.split(" ")[0] || user.email?.split("@")[0] || "there";
@@ -734,22 +802,67 @@ function StaffDashboard({ user, userDoc, company }) {
             todayRecord?.entryTime &&
             !todayRecord?.exitTime && (
               <div className="space-y-3">
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
-                  <span className="dot bg-emerald-500 animate-pulse" />
+                <div
+                  className={`p-4 rounded-xl border flex items-center gap-3 ${
+                    onBreak
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-emerald-50 border-emerald-200"
+                  }`}
+                >
+                  <span
+                    className={`dot animate-pulse ${
+                      onBreak ? "bg-amber-500" : "bg-emerald-500"
+                    }`}
+                  />
                   <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-emerald-700 font-medium flex items-center gap-2">
-                      Checked in at {formatTime12(todayRecord.entryTime)}
+                    <p
+                      className={`text-xs uppercase tracking-wider font-medium flex items-center gap-2 ${
+                        onBreak ? "text-amber-700" : "text-emerald-700"
+                      }`}
+                    >
+                      {onBreak ? "On break" : `Checked in at ${formatTime12(todayRecord.entryTime)}`}
                       {todayRecord.halfDay && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-700 font-medium">
                           HALF DAY
                         </span>
                       )}
                     </p>
-                    <p className="text-sm text-emerald-900 font-medium mt-0.5">
-                      Currently working · your tree is growing
+                    <p
+                      className={`text-sm font-medium mt-0.5 ${
+                        onBreak ? "text-amber-900" : "text-emerald-900"
+                      }`}
+                    >
+                      {onBreak
+                        ? "Pause — your tree is resting"
+                        : "Currently working · your tree is growing"}
                     </p>
                   </div>
+                  {breakTotalMin > 0 && (
+                    <span className="text-xs text-[var(--text-muted)] flex items-center gap-1">
+                      <Coffee className="w-3.5 h-3.5" />
+                      {breakTotalMin}m total
+                    </span>
+                  )}
                 </div>
+                {company?.breakTracking && (
+                  <button
+                    onClick={onBreak ? handleEndBreak : handleStartBreak}
+                    disabled={actioning}
+                    className="btn btn-secondary w-full"
+                  >
+                    {onBreak ? (
+                      <>
+                        <Play className="w-4 h-4" />
+                        End break
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="w-4 h-4" />
+                        Start break
+                      </>
+                    )}
+                  </button>
+                )}
                 <button
                   onClick={handleCheckOut}
                   disabled={actioning}
@@ -805,6 +918,12 @@ function StaffDashboard({ user, userDoc, company }) {
                 </div>
                 <p className="text-sm text-[var(--text-muted)] text-center">
                   Day complete. See you tomorrow!
+                  {breakTotalMin > 0 && (
+                    <span className="block text-xs mt-1">
+                      <Coffee className="w-3 h-3 inline -mt-0.5 mr-1" />
+                      {breakTotalMin} minutes on break
+                    </span>
+                  )}
                 </p>
               </div>
             )}

@@ -197,6 +197,7 @@ function CompanySection({ company, onToast }) {
   const [visibility, setVisibility] = useState(company.visibility || {});
   const [slackWebhook, setSlackWebhook] = useState(company.slackWebhook || "");
   const [discordWebhook, setDiscordWebhook] = useState(company.discordWebhook || "");
+  const [breakTracking, setBreakTracking] = useState(!!company.breakTracking);
 
   const handleHolidayImport = async () => {
     setImporting(true);
@@ -282,6 +283,7 @@ function CompanySection({ company, onToast }) {
         visibility,
         slackWebhook: slackWebhook.trim(),
         discordWebhook: discordWebhook.trim(),
+        breakTracking,
         updatedAt: serverTimestamp(),
       });
       onToast("Settings saved");
@@ -410,6 +412,28 @@ function CompanySection({ company, onToast }) {
             <p className="text-sm font-medium">Auto-approve staff submissions</p>
             <p className="text-xs text-[var(--text-muted)]">
               When ON, staff entries count immediately. When OFF, you must approve each one.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-start gap-3 p-3 rounded-lg bg-[var(--bg-soft)] border border-[var(--border)]">
+          <button
+            type="button"
+            onClick={() => setBreakTracking(!breakTracking)}
+            className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition ${
+              breakTracking ? "bg-emerald-500" : "bg-[var(--border-strong)]"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition mt-0.5 ${
+                breakTracking ? "translate-x-4.5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+          <div className="flex-1">
+            <p className="text-sm font-medium">Break / lunch tracking</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              Add a Start break / End break button to the check-in card so staff can log breaks. Total break time appears in the day summary.
             </p>
           </div>
         </div>
