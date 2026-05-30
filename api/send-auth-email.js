@@ -116,14 +116,24 @@ export default async function handler(req, res) {
     return;
   }
 
-  // 1. Generate the Firebase reset link via Admin SDK
+  // 1. Generate the Firebase reset link via Admin SDK.
+  // Note: we pass the continueUrl so Firebase's hosted reset page redirects
+  // users back to our app after they finish. We don't attempt to override
+  // the action URL itself (Firebase Admin doesn't reliably support that
+  // for password reset).
   let link;
   try {
     initAdmin();
-    link = await admin.auth().generatePasswordResetLink(email, {
-      url: `${APP_URL}/reset-password`,
-      handleCodeInApp: false,
-    });
+    try {
+      link = await admin.auth().generatePasswordResetLink(email, {
+        url: `${APP_URL}/login`,
+        handleCodeInApp: false,
+      });
+    } catch (innerErr) {
+      // Retry without actionCodeSettings if the URL caused issues
+      console.warn("Reset link with continueUrl failed, retrying without:", innerErr.message);
+      link = await admin.auth().generatePasswordResetLink(email);
+    }
   } catch (e) {
     if (e.message?.includes("env vars not set")) {
       res.status(503).json({
