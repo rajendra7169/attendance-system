@@ -29,6 +29,7 @@ import {
 import { db } from "../utils/firebase";
 import { useAuth } from "../hooks/useAuth";
 import { RecordComments } from "./RecordComments";
+import { RecordDispute } from "./RecordDispute";
 
 const STATUS_OPTIONS_ADMIN = [
   { value: "present", label: "Present" },
@@ -488,6 +489,10 @@ function AttendanceModal({
           </div>
         ) : (
           <ViewerView record={existingRecord} officeStart={officeStart} officeEnd={officeEnd} />
+        )}
+
+        {existingRecord && recordDocId && (
+          <RecordDispute record={existingRecord} recordDocId={recordDocId} />
         )}
 
         {existingRecord && recordDocId && (

@@ -65,9 +65,13 @@ service cloud.firestore {
           || isAdminOf(getMe().companyId)
         );
 
-      // Staff can only edit their own pending records; admin can edit anything in their company
+      // Staff can edit their own pending records; admin can edit anything in
+      // their company. Staff can ALSO file or cancel a correction request on
+      // their own approved record — but only by touching dispute/disputeState.
       allow update: if isSignedIn() && (
         (resource.data.userId == myUid() && resource.data.state == 'pending')
+        || (resource.data.userId == myUid()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dispute', 'disputeState']))
         || isAdminOf(resource.data.companyId)
       );
 
