@@ -417,19 +417,30 @@ function Animal({ kind, x, y, motion }) {
   //   3. translate bobs/hops in place
   if (motion) {
     const { x1, x2, y: my, dur } = motion;
-    const hopValues = kind === "rabbit"
-      ? "0 0; 0 -8; 0 0; 0 -2; 0 0"
-      : "0 0; 0 -1.5; 0 0";
-    const hopDur = kind === "rabbit" ? "0.9s" : "1.4s";
-    // Body faces +x by default. First leg of the loop is x1→x2.
+    // Natural rhythm: walk, pause (graze/sniff), walk, pause, return, pause,
+    // return, pause. keyPoints staying constant across two keyTimes = stop.
+    const motionKeyTimes  = "0; 0.18; 0.25; 0.42; 0.50; 0.68; 0.75; 0.92; 1";
+    const motionKeyPoints = "0; 0.30; 0.30; 0.50; 0.50; 0.80; 0.80; 1.00; 1.00";
+    // Body faces +x by default. First half (x1→x2) is "forward", second half
+    // (x2→x1) flips horizontally so the head leads on the return.
     const forwardSx = x2 > x1 ? 1 : -1;
     const backSx = -forwardSx;
+    // Hop continues during pauses → reads as sniffing/grazing in place.
+    const hopValues = kind === "rabbit"
+      ? "0 0; 0 -6; 0 0; 0 -2; 0 0"
+      : "0 0; 0 -1.5; 0 0";
+    const hopDur = kind === "rabbit" ? "1.1s" : "1.6s";
+    // Occasional "sit / stand up" by squashing vertical scale.
+    const sitDur = kind === "rabbit" ? 9 : 13;
     return (
       <g>
         <animateMotion
           dur={`${dur}s`}
           repeatCount="indefinite"
           path={`M${x1},${my} L${x2},${my} L${x1},${my}`}
+          keyTimes={motionKeyTimes}
+          keyPoints={motionKeyPoints}
+          calcMode="linear"
         />
         <g>
           <animateTransform
@@ -444,13 +455,23 @@ function Animal({ kind, x, y, motion }) {
           <g>
             <animateTransform
               attributeName="transform"
-              type="translate"
-              values={hopValues}
-              dur={hopDur}
+              type="scale"
+              values="1 1; 1 1; 1 0.7; 1 0.7; 1 1; 1 1"
+              keyTimes="0; 0.45; 0.5; 0.7; 0.75; 1"
+              dur={`${sitDur}s`}
               repeatCount="indefinite"
             />
-            {kind === "rabbit" && <RabbitShape />}
-            {kind === "deer" && <DeerShape />}
+            <g>
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                values={hopValues}
+                dur={hopDur}
+                repeatCount="indefinite"
+              />
+              {kind === "rabbit" && <RabbitShape />}
+              {kind === "deer" && <DeerShape />}
+            </g>
           </g>
         </g>
       </g>
@@ -468,7 +489,7 @@ function Animal({ kind, x, y, motion }) {
         <animateTransform attributeName="transform" type="translate"
           values={`${x} ${y}; ${x + 30} ${y - 18}; ${x + 50} ${y - 6}; ${x + 40} ${y + 12}; ${x + 15} ${y + 8}; ${x - 10} ${y - 12}; ${x} ${y}`}
           dur="14s" repeatCount="indefinite" />
-        <g>
+        <g transform="scale(0.6)">
           <ellipse cx="0" cy="0" rx="0.7" ry="4" fill="#0f172a" />
           <path d="M-0.4,-3.5 Q-2,-6 -3,-7" stroke="#0f172a" strokeWidth="0.4" fill="none" />
           <path d="M0.4,-3.5 Q2,-6 3,-7" stroke="#0f172a" strokeWidth="0.4" fill="none" />
@@ -817,7 +838,7 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
   const deadCount = stats.dead;
   const seasonSeed = `${year}-${month}-${mode}`;
 
-  const birdCount = Math.min(9, Math.max(3, 4 + Math.floor(grownCount / 4) - Math.floor(deadCount / 3)));
+  const birdCount = Math.min(5, Math.max(2, 2 + Math.floor(grownCount / 10) - Math.floor(deadCount / 4)));
   const birds = useMemo(() => {
     const arr = [];
     for (let i = 0; i < birdCount; i++) {
@@ -1130,12 +1151,12 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
               fill="url(#mountainFront)"
             />
 
-            {/* Weather-driven clouds — drift fully across the sky and morph */}
+            {/* Weather-driven clouds — slow natural drift across the sky */}
             {sky.phase !== "night" && (weather !== "rainy" && weather !== "stormy") && (
               <>
-                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.16} dur={110} opacity={0.85} puffs={[[0, 0, 48, 14], [30, -8, 32, 12], [-25, 6, 28, 10]]} morphSeed="c1" />
-                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.10} dur={150} opacity={0.7} puffs={[[0, 0, 38, 11], [22, -4, 24, 9]]} morphSeed="c2" startOffset={-canvas.w * 0.6} />
-                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.22} dur={180} opacity={0.6} puffs={[[0, 0, 42, 12], [-20, -6, 26, 10], [25, 4, 22, 8]]} morphSeed="c3" startOffset={-canvas.w * 0.3} />
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.16} dur={260} opacity={0.85} puffs={[[0, 0, 48, 14], [30, -8, 32, 12], [-25, 6, 28, 10]]} morphSeed="c1" />
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.10} dur={340} opacity={0.7} puffs={[[0, 0, 38, 11], [22, -4, 24, 9]]} morphSeed="c2" startOffset={-canvas.w * 0.6} />
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.22} dur={400} opacity={0.6} puffs={[[0, 0, 42, 12], [-20, -6, 26, 10], [25, 4, 22, 8]]} morphSeed="c3" startOffset={-canvas.w * 0.3} />
               </>
             )}
             {/* Rain clouds — heavier, darker, lower */}
