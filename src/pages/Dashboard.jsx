@@ -45,6 +45,7 @@ import { Leaderboard } from "../components/Leaderboard";
 import { GoalsCard } from "../components/GoalsCard";
 import { LeaveBalanceCard } from "../components/LeaveBalanceCard";
 import { YearInReview } from "../components/YearInReview";
+import { OfficePresence } from "../components/OfficePresence";
 import { Gift } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -543,6 +544,8 @@ function StaffDashboard({ user, userDoc, company }) {
               {new Date().getFullYear()} Wrapped
             </button>
           </div>
+
+          <OfficePresence company={company} />
 
           {/* State 1 — Nothing yet today: Check in */}
           {!todayRecord && (

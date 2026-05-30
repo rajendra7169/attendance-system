@@ -22,6 +22,7 @@ import { fetchHolidays, COUNTRY_OPTIONS } from "../utils/holidayApi";
 import { logAudit } from "../utils/auditUtils";
 import { sendEmail, emailAttendanceApproved, emailAttendanceRejected } from "../utils/notify";
 import { DEFAULT_QUOTAS } from "../utils/leaveUtils";
+import { getCurrentLocation } from "../utils/geoUtils";
 import { AuditLogPanel } from "../components/AuditLogPanel";
 import {
   Building2,
@@ -46,6 +47,7 @@ import {
   Globe,
   Crown,
   Shield,
+  MapPin,
 } from "lucide-react";
 
 const TABS = [
@@ -175,6 +177,10 @@ function CompanySection({ company, onToast }) {
     sick: company.leaveQuotas?.sick ?? 10,
     casual: company.leaveQuotas?.casual ?? 5,
   });
+  const [officeLat, setOfficeLat] = useState(company.officeLat ?? "");
+  const [officeLng, setOfficeLng] = useState(company.officeLng ?? "");
+  const [officeRadius, setOfficeRadius] = useState(company.officeRadius ?? 100);
+  const [locating, setLocating] = useState(false);
 
   const handleHolidayImport = async () => {
     setImporting(true);
@@ -224,6 +230,20 @@ function CompanySection({ company, onToast }) {
   const removeHoliday = (idx) =>
     setHolidays((prev) => prev.filter((_, i) => i !== idx));
 
+  const useMyLocation = async () => {
+    setLocating(true);
+    try {
+      const { lat, lng } = await getCurrentLocation();
+      setOfficeLat(lat.toFixed(6));
+      setOfficeLng(lng.toFixed(6));
+      onToast("Office location set from your current position");
+    } catch (e) {
+      onToast(e.message || "Could not get location", "error");
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const save = async () => {
     if (!name.trim()) {
       onToast("Company name is required", "error");
@@ -240,6 +260,9 @@ function CompanySection({ company, onToast }) {
         holidays,
         leaveQuotas,
         autoApprove,
+        officeLat: officeLat === "" ? null : Number(officeLat),
+        officeLng: officeLng === "" ? null : Number(officeLng),
+        officeRadius: Number(officeRadius) || 100,
         updatedAt: serverTimestamp(),
       });
       onToast("Settings saved");
@@ -371,6 +394,62 @@ function CompanySection({ company, onToast }) {
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="surface-elevated p-6 sm:p-8">
+        <h2 className="text-lg font-semibold tracking-tight mb-5 flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-indigo-600" />
+          Office location
+        </h2>
+        <p className="text-sm text-[var(--text-muted)] mb-4">
+          Used to auto-detect when staff check in from the office. Leave blank to
+          disable the location check.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="label">Latitude</label>
+            <input
+              type="number"
+              step="0.000001"
+              value={officeLat}
+              onChange={(e) => setOfficeLat(e.target.value)}
+              placeholder="27.700769"
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label">Longitude</label>
+            <input
+              type="number"
+              step="0.000001"
+              value={officeLng}
+              onChange={(e) => setOfficeLng(e.target.value)}
+              placeholder="85.300140"
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label">Radius (meters)</label>
+            <input
+              type="number"
+              min="20"
+              max="2000"
+              step="10"
+              value={officeRadius}
+              onChange={(e) => setOfficeRadius(e.target.value)}
+              className="input-field"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={useMyLocation}
+          disabled={locating}
+          className="btn btn-secondary mt-4"
+        >
+          <MapPin className="w-4 h-4" />
+          {locating ? "Getting location..." : "Use my current location"}
+        </button>
       </section>
 
       <section className="surface-elevated p-6 sm:p-8">
