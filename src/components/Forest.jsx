@@ -410,16 +410,20 @@ function DeerShape({ flip }) {
 
 function Animal({ kind, x, y, motion }) {
   // Roaming animals (rabbit, deer) follow a back-and-forth path along a
-  // river-bank corridor. The outer <g> rides the path via animateMotion;
-  // an inner <g> bobs/hops in place; the body flips horizontally when
-  // walking right→left so the head always leads.
+  // river-bank corridor. Layers, outer → inner:
+  //   1. animateMotion rides the path
+  //   2. discrete scale flip mirrors the body at the midpoint so the head
+  //      always leads (it actually turns around, not moonwalks back)
+  //   3. translate bobs/hops in place
   if (motion) {
     const { x1, x2, y: my, dur } = motion;
     const hopValues = kind === "rabbit"
       ? "0 0; 0 -8; 0 0; 0 -2; 0 0"
       : "0 0; 0 -1.5; 0 0";
     const hopDur = kind === "rabbit" ? "0.9s" : "1.4s";
-    const facesLeftOnReturn = x2 < x1;
+    // Body faces +x by default. First leg of the loop is x1→x2.
+    const forwardSx = x2 > x1 ? 1 : -1;
+    const backSx = -forwardSx;
     return (
       <g>
         <animateMotion
@@ -430,13 +434,24 @@ function Animal({ kind, x, y, motion }) {
         <g>
           <animateTransform
             attributeName="transform"
-            type="translate"
-            values={hopValues}
-            dur={hopDur}
+            type="scale"
+            values={`${forwardSx} 1; ${backSx} 1; ${forwardSx} 1`}
+            keyTimes="0; 0.5; 1"
+            calcMode="discrete"
+            dur={`${dur}s`}
             repeatCount="indefinite"
           />
-          {kind === "rabbit" && <RabbitShape flip={!facesLeftOnReturn} />}
-          {kind === "deer" && <DeerShape flip={!facesLeftOnReturn} />}
+          <g>
+            <animateTransform
+              attributeName="transform"
+              type="translate"
+              values={hopValues}
+              dur={hopDur}
+              repeatCount="indefinite"
+            />
+            {kind === "rabbit" && <RabbitShape />}
+            {kind === "deer" && <DeerShape />}
+          </g>
         </g>
       </g>
     );
@@ -476,6 +491,35 @@ function Animal({ kind, x, y, motion }) {
     );
   }
   return null;
+}
+
+/* ---------- Drifting clouds (slowly cross the sky, morph as they go) ---------- */
+function DriftingCloud({ canvasW, y, dur, opacity, puffs, morphSeed, startOffset = 0 }) {
+  // Drift from off-screen left to off-screen right, then loop. `startOffset`
+  // shifts the cloud's initial position in pixels (negative = head start, so
+  // clouds don't all spawn bunched at the edge).
+  const begin = startOffset === 0 ? undefined : `${startOffset / (canvasW + 400) * dur}s`;
+  return (
+    <g opacity={opacity} fill="white">
+      <animateTransform
+        attributeName="transform"
+        type="translate"
+        values={`-200 ${y}; ${canvasW + 200} ${y}`}
+        dur={`${dur}s`}
+        begin={begin}
+        repeatCount="indefinite"
+      />
+      {puffs.map(([px, py, rx, ry], i) => {
+        const morphDur = 18 + (hash(morphSeed + i) % 12);
+        return (
+          <ellipse key={i} cx={px} cy={py} rx={rx} ry={ry}>
+            <animate attributeName="rx" values={`${rx}; ${rx * 1.12}; ${rx * 0.9}; ${rx}`} dur={`${morphDur}s`} repeatCount="indefinite" />
+            <animate attributeName="ry" values={`${ry}; ${ry * 0.85}; ${ry * 1.15}; ${ry}`} dur={`${morphDur + 3}s`} repeatCount="indefinite" />
+          </ellipse>
+        );
+      })}
+    </g>
+  );
 }
 
 /* ---------- Weather overlays ---------- */
@@ -1086,20 +1130,12 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
               fill="url(#mountainFront)"
             />
 
-            {/* Weather-driven clouds */}
+            {/* Weather-driven clouds — drift fully across the sky and morph */}
             {sky.phase !== "night" && (weather !== "rainy" && weather !== "stormy") && (
               <>
-                <g opacity={0.85} fill="white">
-                  <animateTransform attributeName="transform" type="translate" values={`0 0; ${canvas.w * 0.05} 0; 0 0`} dur="80s" repeatCount="indefinite" />
-                  <ellipse cx={canvas.w * 0.18} cy={canvas.h * 0.16} rx="48" ry="14" />
-                  <ellipse cx={canvas.w * 0.22} cy={canvas.h * 0.13} rx="32" ry="12" />
-                  <ellipse cx={canvas.w * 0.14} cy={canvas.h * 0.18} rx="28" ry="10" />
-                </g>
-                <g opacity="0.7" fill="white">
-                  <animateTransform attributeName="transform" type="translate" values={`0 0; ${-canvas.w * 0.04} 0; 0 0`} dur="60s" repeatCount="indefinite" />
-                  <ellipse cx={canvas.w * 0.62} cy={canvas.h * 0.12} rx="38" ry="11" />
-                  <ellipse cx={canvas.w * 0.66} cy={canvas.h * 0.1} rx="24" ry="9" />
-                </g>
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.16} dur={110} opacity={0.85} puffs={[[0, 0, 48, 14], [30, -8, 32, 12], [-25, 6, 28, 10]]} morphSeed="c1" />
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.10} dur={150} opacity={0.7} puffs={[[0, 0, 38, 11], [22, -4, 24, 9]]} morphSeed="c2" startOffset={-canvas.w * 0.6} />
+                <DriftingCloud canvasW={canvas.w} y={canvas.h * 0.22} dur={180} opacity={0.6} puffs={[[0, 0, 42, 12], [-20, -6, 26, 10], [25, 4, 22, 8]]} morphSeed="c3" startOffset={-canvas.w * 0.3} />
               </>
             )}
             {/* Rain clouds — heavier, darker, lower */}
