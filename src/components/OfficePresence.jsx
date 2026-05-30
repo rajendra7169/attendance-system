@@ -11,7 +11,7 @@ import {
 //   - "Not in office" (grey) with distance hint otherwise
 //   - "Turn on location" button if permission is needed or has been denied
 // Hidden entirely when the workspace has no office location configured.
-export function OfficePresence({ company }) {
+export function OfficePresence({ company, onChange }) {
   const hasOffice =
     typeof company?.officeLat === "number" &&
     typeof company?.officeLng === "number";
@@ -20,6 +20,27 @@ export function OfficePresence({ company }) {
   const [position, setPosition] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Bubble status up so the parent (Dashboard) can gate check-in actions.
+  useEffect(() => {
+    if (!onChange) return;
+    if (!hasOffice) {
+      onChange({ hasOffice: false, position: null, distance: null, inOffice: null });
+      return;
+    }
+    const distance = position
+      ? distanceMeters(position.lat, position.lng, company.officeLat, company.officeLng)
+      : null;
+    const radius = company.officeRadius || 100;
+    onChange({
+      hasOffice: true,
+      position,
+      distance,
+      radius,
+      inOffice: distance === null ? null : distance <= radius,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position, hasOffice, company?.officeLat, company?.officeLng, company?.officeRadius]);
 
   // Try to read current permission state once on mount. If already granted,
   // fetch the position automatically — no extra click needed for returning users.

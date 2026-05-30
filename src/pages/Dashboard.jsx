@@ -412,8 +412,10 @@ function StaffDashboard({ user, userDoc, company }) {
   };
 
   const [actioning, setActioning] = useState(false);
+  const [presence, setPresence] = useState(null);
+  const [confirmOutside, setConfirmOutside] = useState(false);
 
-  const handleCheckIn = async () => {
+  const doCheckIn = async () => {
     if (!company?.id || actioning) return;
     setActioning(true);
     try {
@@ -451,6 +453,17 @@ function StaffDashboard({ user, userDoc, company }) {
     } finally {
       setActioning(false);
     }
+  };
+
+  const handleCheckIn = () => {
+    // If the workspace has an office configured AND we have a position AND
+    // it's outside the radius, warn first. All other cases (no office set,
+    // no position yet, or inside) go straight to check-in.
+    if (presence?.hasOffice && presence?.inOffice === false) {
+      setConfirmOutside(true);
+      return;
+    }
+    doCheckIn();
   };
 
   const handleCheckOut = async () => {
@@ -494,6 +507,63 @@ function StaffDashboard({ user, userDoc, company }) {
         >
           {toast.type !== "error" && <Check className="w-4 h-4" />}
           {toast.msg}
+        </div>
+      )}
+
+      {confirmOutside && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setConfirmOutside(false)}
+        >
+          <div
+            className="surface-elevated max-w-md w-full p-6 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold tracking-tight">
+                  You're not in the office area
+                </h3>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">
+                  {presence?.distance != null && (
+                    <>
+                      You're{" "}
+                      <span className="font-medium">
+                        {presence.distance < 1000
+                          ? `${Math.round(presence.distance)}m`
+                          : `${(presence.distance / 1000).toFixed(1)}km`}
+                      </span>{" "}
+                      from the office (radius{" "}
+                      <span className="font-medium">{presence.radius}m</span>).
+                      Your attendance may be rejected by the admin.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                type="button"
+                onClick={() => setConfirmOutside(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmOutside(false);
+                  doCheckIn();
+                }}
+                className="btn btn-primary"
+              >
+                Check in anyway
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -545,7 +615,7 @@ function StaffDashboard({ user, userDoc, company }) {
             </button>
           </div>
 
-          <OfficePresence company={company} />
+          <OfficePresence company={company} onChange={setPresence} />
 
           {/* State 1 — Nothing yet today: Check in */}
           {!todayRecord && (
