@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { auth, db, isFirebaseConfigured } from "../utils/firebase";
 import {
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
+  sendSignInLinkToEmail,
   GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
@@ -47,25 +47,19 @@ export function Login() {
     }
     setLoading(true);
     try {
-      // Try the branded server-side email first
-      let sent = false;
+      // Use Firebase's email-link sign-in.
+      // The link will point DIRECTLY to our /reset-password page (not Firebase's hosted page),
+      // letting us run the entire UX on our branded theme.
+      const e = email.trim();
       try {
-        const r = await fetch("/api/send-auth-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email.trim(), type: "reset-password" }),
-        });
-        const result = await r.json();
-        if (result.ok) sent = true;
+        window.localStorage.setItem("tally:emailForSignIn", e);
       } catch {
-        // Will fall through to Firebase fallback
+        // ignore storage issues (Safari private mode etc.)
       }
-      if (!sent) {
-        await sendPasswordResetEmail(auth, email.trim(), {
-          url: `${window.location.origin}/reset-password`,
-          handleCodeInApp: false,
-        });
-      }
+      await sendSignInLinkToEmail(auth, e, {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: true,
+      });
       setInfo(`Reset link sent to ${email}. Check your inbox (and spam).`);
     } catch (err) {
       if (err.code === "auth/user-not-found") {

@@ -3,8 +3,13 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   verifyPasswordResetCode,
   confirmPasswordReset,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  updatePassword,
 } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "../utils/firebase";
+
+const STORAGE_EMAIL_KEY = "tally:emailForSignIn";
 import {
   Lock,
   Eye,
@@ -38,25 +43,73 @@ export function ResetPassword() {
         setError("Firebase is not configured.");
         return;
       }
-      if (mode !== "resetPassword" || !oobCode) {
-        setStatus("invalid");
-        setError("Invalid or missing reset link.");
+
+      // Path A — Email link sign-in (used for staff invites and password reset)
+      if (isSignInWithEmailLink(auth, window.location.href)) {
+        let savedEmail = "";
+        try {
+          savedEmail = window.localStorage.getItem(STORAGE_EMAIL_KEY) || "";
+        } catch {
+          // ignore
+        }
+        if (!savedEmail) {
+          // User opened the link on a different device — ask them to confirm
+          savedEmail = window.prompt(
+            "Confirm the email this link was sent to:",
+          ) || "";
+        }
+        if (!savedEmail) {
+          setStatus("invalid");
+          setError("Email is required to complete sign-in.");
+          return;
+        }
+        try {
+          const result = await signInWithEmailLink(
+            auth,
+            savedEmail.trim(),
+            window.location.href,
+          );
+          setEmail(result.user.email);
+          try {
+            window.localStorage.removeItem(STORAGE_EMAIL_KEY);
+          } catch {
+            // ignore
+          }
+          setStatus("ready");
+        } catch (err) {
+          setStatus("invalid");
+          if (err.code === "auth/invalid-action-code") {
+            setError("This link is invalid or has already been used.");
+          } else if (err.code === "auth/expired-action-code") {
+            setError("This link has expired. Request a new one.");
+          } else {
+            setError(err.message || "Could not verify link.");
+          }
+        }
         return;
       }
-      try {
-        const verifiedEmail = await verifyPasswordResetCode(auth, oobCode);
-        setEmail(verifiedEmail);
-        setStatus("ready");
-      } catch (err) {
-        setStatus("invalid");
-        if (err.code === "auth/expired-action-code") {
-          setError("This reset link has expired. Request a new one.");
-        } else if (err.code === "auth/invalid-action-code") {
-          setError("This reset link is invalid or has already been used.");
-        } else {
-          setError(err.message || "Could not verify reset link.");
+
+      // Path B — Legacy password reset oobCode
+      if (mode === "resetPassword" && oobCode) {
+        try {
+          const verifiedEmail = await verifyPasswordResetCode(auth, oobCode);
+          setEmail(verifiedEmail);
+          setStatus("ready");
+        } catch (err) {
+          setStatus("invalid");
+          if (err.code === "auth/expired-action-code") {
+            setError("This reset link has expired. Request a new one.");
+          } else if (err.code === "auth/invalid-action-code") {
+            setError("This reset link is invalid or has already been used.");
+          } else {
+            setError(err.message || "Could not verify reset link.");
+          }
         }
+        return;
       }
+
+      setStatus("invalid");
+      setError("Invalid or missing reset link.");
     };
     verify();
   }, [mode, oobCode]);
@@ -76,7 +129,13 @@ export function ResetPassword() {
 
     setSubmitting(true);
     try {
-      await confirmPasswordReset(auth, oobCode, password);
+      // Choose the right Firebase call depending on which mode landed us here
+      if (auth.currentUser && isSignInWithEmailLink(auth, window.location.href)) {
+        // Sign-in link path: user is already signed in, just set the password
+        await updatePassword(auth.currentUser, password);
+      } else {
+        await confirmPasswordReset(auth, oobCode, password);
+      }
       setStatus("success");
       setTimeout(() => navigate("/login"), 2500);
     } catch (err) {

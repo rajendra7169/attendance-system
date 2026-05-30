@@ -9,8 +9,25 @@ import {
   serverTimestamp,
   deleteDoc,
 } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
+import {
+  sendPasswordResetEmail,
+  sendSignInLinkToEmail,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { auth, db, createAuthUserIsolated } from "./firebase";
+
+async function sendBrandedSignInLink(email) {
+  // Save email locally so /reset-password can complete the sign-in
+  try {
+    window.localStorage.setItem("tally:emailForSignIn", email);
+  } catch {
+    // ignore
+  }
+  await sendSignInLinkToEmail(auth, email, {
+    url: `${window.location.origin}/reset-password`,
+    handleCodeInApp: true,
+  });
+}
 
 /** Generate a short, friendly workspace code like K7F2-9XPL (kept for display) */
 export function generateWorkspaceCode() {
@@ -95,27 +112,10 @@ export async function createStaffByEmail({ companyId, email, displayName }) {
     joinedAt: serverTimestamp(),
   });
 
-  // 4) Send branded "set your password" email via our server (with Resend + Admin SDK).
-  // Falls back to Firebase's default email if our server isn't set up yet.
-  try {
-    const r = await fetch("/api/send-auth-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: e,
-        type: "set-password",
-        displayName: name,
-      }),
-    });
-    const result = await r.json();
-    if (!result.ok) throw new Error(result.error || "Server email failed");
-  } catch (err) {
-    console.warn("Branded email failed, falling back to Firebase default:", err);
-    await sendPasswordResetEmail(auth, e, {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: false,
-    });
-  }
+  // 4) Send a Firebase sign-in link that points directly to our /reset-password page.
+  // Staff clicks it → our branded page authenticates them via signInWithEmailLink
+  // → prompts for a password → updatePassword. No Firebase generic page involved.
+  await sendBrandedSignInLink(e);
 
   return { uid, email: e };
 }
@@ -126,32 +126,11 @@ export async function removeStaff(uid) {
 }
 
 /** Resend the "set your password" email to a staff member */
-export async function resendStaffSetupEmail(email, displayName) {
+export async function resendStaffSetupEmail(email) {
   const e = (email || "").trim().toLowerCase();
   if (!isValidEmail(e)) throw new Error("Invalid email.");
-  // Try branded email first
   try {
-    const r = await fetch("/api/send-auth-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: e,
-        type: "set-password",
-        displayName: displayName || "",
-      }),
-    });
-    const result = await r.json();
-    if (result.ok) return;
-    throw new Error(result.error || "Server email failed");
-  } catch (err) {
-    console.warn("Branded email failed, falling back:", err);
-  }
-  // Fallback
-  try {
-    await sendPasswordResetEmail(auth, e, {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: false,
-    });
+    await sendBrandedSignInLink(e);
   } catch (err) {
     if (err.code === "auth/user-not-found") {
       throw new Error("No account with that email.");
