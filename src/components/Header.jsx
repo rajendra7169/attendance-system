@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { LogOut, Settings, LayoutDashboard, User } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, User, Sun, Moon } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -9,12 +9,14 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
+import { useTheme } from "../hooks/useTheme";
 
 export function Header() {
   const { user, userDoc, company, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   // Live count of pending approvals for admin
   useEffect(() => {
@@ -83,7 +85,7 @@ export function Header() {
               onClick={() => navigate("/dashboard")}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition flex items-center gap-1.5 ${
                 isDashboard
-                  ? "bg-white text-[var(--text)] shadow-sm"
+                  ? "bg-[var(--bg-elev)] text-[var(--text)] shadow-sm"
                   : "text-[var(--text-secondary)] hover:text-[var(--text)]"
               }`}
             >
@@ -95,7 +97,7 @@ export function Header() {
                 onClick={() => navigate("/me")}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition flex items-center gap-1.5 ${
                   isMe
-                    ? "bg-white text-[var(--text)] shadow-sm"
+                    ? "bg-[var(--bg-elev)] text-[var(--text)] shadow-sm"
                     : "text-[var(--text-secondary)] hover:text-[var(--text)]"
                 }`}
               >
@@ -108,7 +110,7 @@ export function Header() {
                 onClick={() => navigate("/admin")}
                 className={`relative px-3 py-1.5 text-sm font-medium rounded-md transition flex items-center gap-1.5 ${
                   isAdminPage
-                    ? "bg-white text-[var(--text)] shadow-sm"
+                    ? "bg-[var(--bg-elev)] text-[var(--text)] shadow-sm"
                     : "text-[var(--text-secondary)] hover:text-[var(--text)]"
                 }`}
               >
@@ -146,6 +148,18 @@ export function Header() {
                 {initials}
               </div>
             )}
+            <button
+              onClick={toggleTheme}
+              className="btn btn-ghost btn-icon"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </button>
             <button
               onClick={handleLogout}
               className="btn btn-ghost btn-icon"

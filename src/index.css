@@ -40,12 +40,47 @@
   --radius-lg: 14px;
   --radius-xl: 20px;
 
+  --nav-bg: rgba(250, 250, 250, 0.85);
+
   font-family:
     "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-feature-settings: "cv11", "ss01", "ss03";
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark theme — activated by setting data-theme="dark" on <html>. Only the
+   surface, text, and border tokens change; brand/accent stay constant so
+   identity is preserved. Shadows are softened (less helpful on dark bg). */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0a0a0b;
+  --bg-elev: #131316;
+  --bg-soft: #1c1c20;
+  --bg-muted: #18181b;
+
+  --border: #2a2a30;
+  --border-strong: #3a3a42;
+
+  --text: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  --brand-50: #1e1b4b;
+  --brand-100: #312e81;
+
+  --success-bg: #064e3b33;
+  --danger-bg: #7f1d1d33;
+  --warning-bg: #78350f33;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
+
+  --nav-bg: rgba(10, 10, 11, 0.85);
 }
 
 * {
@@ -94,7 +129,7 @@ h1, h2, h3, h4 {
 
 /* Sticky top nav */
 .app-nav {
-  background: rgba(250, 250, 250, 0.85);
+  background: var(--nav-bg);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
   border-bottom: 1px solid var(--border);
