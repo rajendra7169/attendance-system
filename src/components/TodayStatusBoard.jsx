@@ -47,11 +47,11 @@ export function TodayStatusBoard({ members, attendance, company, isAdmin = false
         detail = rec.entryTime ? `Submitted at ${formatTime12(rec.entryTime)}` : "Pending review";
       } else if (rec?.entryTime && rec?.exitTime) {
         status = "checked_out";
-        detail = `${formatTime12(rec.entryTime)} → ${formatTime12(rec.exitTime)}`;
+        detail = `${formatTime12(rec.entryTime)} → ${formatTime12(rec.exitTime)}${rec.halfDay ? " · half day" : ""}`;
       } else if (rec?.entryTime) {
         const isLate = rec.entryTime > officeStart;
         status = isLate ? "late" : "in_office";
-        detail = `Checked in at ${formatTime12(rec.entryTime)}`;
+        detail = `Checked in at ${formatTime12(rec.entryTime)}${rec.halfDay ? " · half day" : ""}`;
       } else if (beforeOfficeStart) {
         status = "not_in_yet";
         detail = "Not in yet";

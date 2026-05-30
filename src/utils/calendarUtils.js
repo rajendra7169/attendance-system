@@ -113,6 +113,7 @@ export function getToneShortLabel(tone) {
 
 export function getAttendanceStats(attendanceData, { start = OFFICE_START, end = OFFICE_END } = {}) {
   let present = 0;
+  let halfDays = 0;
   let absent = 0;
   let off = 0;
   let pending = 0;
@@ -134,7 +135,12 @@ export function getAttendanceStats(attendanceData, { start = OFFICE_START, end =
       off++;
       return;
     }
-    present++;
+    if (record.halfDay) {
+      halfDays++;
+      present += 0.5;
+    } else {
+      present++;
+    }
 
     if (record.entryTime) {
       if (record.entryTime > start) late++;
@@ -142,17 +148,21 @@ export function getAttendanceStats(attendanceData, { start = OFFICE_START, end =
     }
     if (record.exitTime && record.exitTime < end) earlyLeave++;
 
+    // Half-day records never count as "on time" (they aren't expected to cover
+    // the full office window).
     const entryOk = record.entryTime && record.entryTime <= start;
     const exitOk = record.exitTime && record.exitTime >= end;
-    if (entryOk && exitOk) onTime++;
+    if (entryOk && exitOk && !record.halfDay) onTime++;
   });
 
-  // Attendance rate excludes off-days (planned leave)
+  // Attendance rate excludes off-days (planned leave). Half-days contribute
+  // 0.5 on both sides of the ratio.
   const accountable = present + absent;
   const rate = accountable > 0 ? Math.round((present / accountable) * 100) : 0;
 
   return {
     present,
+    halfDays,
     absent,
     off,
     pending,

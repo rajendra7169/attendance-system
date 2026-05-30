@@ -464,6 +464,7 @@ function StaffDashboard({ user, userDoc, company }) {
   const [actioning, setActioning] = useState(false);
   const [presence, setPresence] = useState(null);
   const [confirmOutside, setConfirmOutside] = useState(false);
+  const [halfDay, setHalfDay] = useState(false);
 
   const doCheckIn = async () => {
     if (!company?.id || actioning) return;
@@ -478,6 +479,7 @@ function StaffDashboard({ user, userDoc, company }) {
         entryTime: nowHHMM(),
         exitTime: "",
         note: "",
+        halfDay,
         state: company.autoApprove ? "approved" : "pending",
         submittedBy: user.uid,
         submittedAt: serverTimestamp(),
@@ -490,7 +492,11 @@ function StaffDashboard({ user, userDoc, company }) {
         ...prev.filter((a) => a.date !== today),
         payload,
       ]);
-      showToast(`Checked in at ${formatTime12(payload.entryTime)}`);
+      showToast(
+        halfDay
+          ? `Half day check-in at ${formatTime12(payload.entryTime)}`
+          : `Checked in at ${formatTime12(payload.entryTime)}`,
+      );
       confetti({
         particleCount: 60,
         spread: 65,
@@ -671,22 +677,46 @@ function StaffDashboard({ user, userDoc, company }) {
 
           {/* State 1 — Nothing yet today: Check in */}
           {!todayRecord && (
-            <button
-              onClick={handleCheckIn}
-              disabled={actioning}
-              className="btn btn-primary w-full py-4 text-base"
-            >
-              {actioning ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Checking in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  Check in now
-                </>
-              )}
-            </button>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <button
+                  type="button"
+                  onClick={() => setHalfDay((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition ${
+                    halfDay ? "bg-indigo-500" : "bg-[var(--border-strong)]"
+                  }`}
+                  aria-pressed={halfDay}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition mt-0.5 ${
+                      halfDay ? "translate-x-4.5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-[var(--text-secondary)]">
+                  Half day{" "}
+                  <span className="text-[var(--text-muted)]">
+                    (counts as 0.5)
+                  </span>
+                </span>
+              </label>
+              <button
+                onClick={handleCheckIn}
+                disabled={actioning}
+                className="btn btn-primary w-full py-4 text-base"
+              >
+                {actioning ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Checking in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-5 h-5" />
+                    {halfDay ? "Check in (half day)" : "Check in now"}
+                  </>
+                )}
+              </button>
+            </div>
           )}
 
           {/* State 2 — Checked in, not checked out: green badge + Check out button */}
@@ -697,8 +727,13 @@ function StaffDashboard({ user, userDoc, company }) {
                 <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
                   <span className="dot bg-emerald-500 animate-pulse" />
                   <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-emerald-700 font-medium">
+                    <p className="text-xs uppercase tracking-wider text-emerald-700 font-medium flex items-center gap-2">
                       Checked in at {formatTime12(todayRecord.entryTime)}
+                      {todayRecord.halfDay && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-700 font-medium">
+                          HALF DAY
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-emerald-900 font-medium mt-0.5">
                       Currently working · your tree is growing
