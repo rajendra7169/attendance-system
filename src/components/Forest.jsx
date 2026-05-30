@@ -187,8 +187,8 @@ function getSkyState(now, w, h) {
 }
 
 /* ---------- Tree variants ---------- */
-function Tree({ x, y, size, kind, shape, date, pending, growing, isAnniv, onHover, onLeave, onClick }) {
-  const baseScale = 0.7 + size * 0.6;
+function Tree({ x, y, size, kind, shape, date, pending, growing, isAnniv, densityScale, onHover, onLeave, onClick }) {
+  const baseScale = (0.7 + size * 0.6) * (densityScale ?? 1);
   const props = {
     transform: `translate(${x}, ${y}) scale(${baseScale})`,
     style: {
@@ -647,8 +647,19 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
       // Use userId+date so trees for different staff don't stack at the same spot
       const seed = `${r.userId || "self"}_${r.date}`;
       const xPct = rand01(seed + "x") * 0.86 + 0.07;
-      // Trees grow on the GROUND only (y range 0.6 - 0.95), never in the sky.
-      const yPct = rand01(seed + "y") * 0.35 + 0.6;
+
+      // Avoid the river band (~y 0.76–0.91). Place 60% of trees ABOVE the river,
+      // 40% BELOW it on the foreground bank.
+      const rawY = rand01(seed + "y");
+      let yPct;
+      if (rawY < 0.6) {
+        // Above river: 0.60–0.74 (middle ground)
+        yPct = 0.60 + (rawY / 0.6) * 0.14;
+      } else {
+        // Below river: 0.92–0.97 (close-up foreground)
+        yPct = 0.92 + ((rawY - 0.6) / 0.4) * 0.05;
+      }
+
       const recordDate = new Date(r.date);
       const anniv = joinedAt && isAnniversary(joinedAt, recordDate);
       items.push({
@@ -663,6 +674,15 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
     items.sort((a, b) => a.yPct - b.yPct);
     return items;
   }, [filtered, officeStart, officeEnd, now, joinedAt]);
+
+  // Dynamic density scale — shrinks trees gracefully as the forest grows so
+  // they keep fitting without bursting through the river or hills.
+  const densityScale = useMemo(() => {
+    if (trees.length <= 40) return 1;
+    if (trees.length <= 100) return 1 - (trees.length - 40) * 0.005; // 1.00 → 0.70
+    if (trees.length <= 300) return 0.7 - (trees.length - 100) * 0.001; // 0.70 → 0.50
+    return 0.5;
+  }, [trees.length]);
 
   // Recent records for weather
   const recentRecords = useMemo(() => {
@@ -1107,6 +1127,7 @@ export function Forest({ records, company, title = "Your forest", joinedAt, isAd
             {trees.map((t) => (
               <Tree
                 key={t.id}
+                densityScale={densityScale}
                 x={t.xPct * canvas.w} y={t.yPct * canvas.h}
                 size={t.size} kind={t.kind} shape={t.shape} date={t.date}
                 pending={t.pending} growing={t.growing} isAnniv={t.isAnniv}
